@@ -38,3 +38,14 @@ def cities_page_fancy():
     for result in query_results:
         cities.append(dict(name=result[0], country=result[1], population=result[2]))
     return render_template('cities.html', cities=cities)
+
+@app.route("/tag")
+def tag_home():
+    import tagsf as tg
+
+    c = tg.cluster_geo(tg.inst)
+    tg.make_map(tg.inst, c)
+
+    top_10 = tg.text_from_clusters(tg.inst, c)
+
+    return render_template('tag_home.html', unusual_tokens=top_10)
