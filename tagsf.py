@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-import flickrapi
 import urllib
 import json
 import time
@@ -17,44 +16,58 @@ instagram = load_instagram()
 max_date = pd.datetime(2015, 1, 10)
 inst = instagram[instagram['date'] > max_date]
 
-# c = tg.cluster_geo(tg.inst)
 
-def cluster_geo(posts):
-    # expects lat and long columns
-    from scipy.cluster.vq import kmeans,vq
-    from scipy.spatial.distance import cdist
+def cluster_geo(posts, method='dbscan', eps=0.002, min_samples=5):
+    # cluster_labels = cluster_geo(posts, method='dbscan', eps=0.002, min_samples=5)
+    #
+    #   posts: dataframe, needs columns ['lat', 'long']
+    #   methods: 'kmeans', 'dbscan'
+    #       if 'dbscan', params:
+    #           eps
+    #           min_samples
+
     from sklearn.cluster import KMeans
+    from sklearn.cluster import DBSCAN
+    from sklearn import metrics
 
-    # # TODO: set threshold on clusters:
-    # K = range(1,30)
-    #
-    # # scipy.cluster.vq.kmeans
-    # KM = [kmeans(posts[['lat', 'long']].values,k) for k in K] # apply kmeans 1 to 10
-    # centroids = [cent for (cent,var) in KM]   # cluster centroids
-    #
-    # D_k = [cdist(posts[['lat', 'long']].values, cent, 'euclidean') for cent in centroids]
-    #
-    # cIdx = [np.argmin(D,axis=1) for D in D_k]
-    # dist = [np.min(D,axis=1) for D in D_k]
-    # avgWithinSS = [sum(d)/posts[['lat', 'long']].shape[0] for d in dist]
+    if method.lower() == 'kmeans':
+        print 'clustering lat,long by kmeans'
 
-    # Classify into n_clusters:
-    n_clust = int(np.sqrt(posts[['lat', 'long']].shape[0]/2))
-    km = KMeans(n_clust, init='k-means++') # initialize
-    km.fit(posts[['lat', 'long']])
-    c = km.predict(posts[['lat', 'long']]) # classify
+        # Classify into n_clusters:
+        n_clust = int(np.sqrt(posts[['lat', 'long']].shape[0]/2))
 
-    return c
+        km = KMeans(n_clust, init='k-means++') # initialize
+        km.fit(posts[['lat', 'long']])
+        cluster_labels = km.predict(posts[['lat', 'long']]) # classify
 
-def make_map(posts, c):
+    elif method.lower() == 'dbscan':
+        print 'clustering lat,long by dbscan'
+        from sklearn.datasets.samples_generator import make_blobs
+        from sklearn.preprocessing import StandardScaler
+
+
+        db = DBSCAN(eps=eps, min_samples=min_samples).fit(posts[['lat', 'long']].values)
+        core_samples_mask = np.zeros_like(db.labels_, dtype=bool)
+        core_samples_mask[db.core_sample_indices_] = True
+        cluster_labels = db.labels_
+
+        # Number of clusters in labels, ignoring noise if present.
+        n_clust = len(set(cluster_labels)) - (1 if -1 in cluster_labels else 0)
+
+        print('Estimated number of clusters: %d' % n_clust)
+        print("Silhouette Coefficient: %0.3f" % metrics.silhouette_score(posts[['lat', 'long']].values, cluster_labels))
+
+    return cluster_labels
+
+def make_map(posts, cluster_labels):
     import colorsys
     from colors import rgb
     import os
     import folium
     import seaborn as sns
 
-    cols = sns.color_palette("Set2", n_colors=len(np.unique(c)))
-    marker_col = ['#%s' % str(rgb(cols[ic][0]*255, cols[ic][1]*255, cols[ic][2]*255).hex) for ic in c]
+    cols = sns.color_palette("Set2", n_colors=len(np.unique(cluster_labels)))
+    marker_col = ['#%s' % str(rgb(cols[ic][0]*255, cols[ic][1]*255, cols[ic][2]*255).hex) for ic in cluster_labels]
 
     # Check if map file already exists
     if os.path.exists('%s/map.html' % (config.paths['templates'])):
@@ -64,7 +77,7 @@ def make_map(posts, c):
     # TODO: make global lat long
     # query google api
     map = folium.Map(location=[37.7833, -122.4167], zoom_start=13, tiles='Stamen Toner')
-    map.create_map(path='%s/map.html' % (config.paths['templates']))
+    map.create_map(path='%s/map.html' % (config.paths['templates'])) #TODO: take out
 
     # markers
     for ind, row in enumerate(posts.iterrows()):
@@ -72,11 +85,11 @@ def make_map(posts, c):
                       radius=20,
                       line_color=marker_col[ind],
                       fill_color=marker_col[ind],
-                      popup=str(c[ind]))
+                      popup=str(cluster_labels[ind]))
 
     map.create_map(path='%s/map.html' % (config.paths['templates']))
 
-def text_from_clusters(posts, c):
+def text_from_clusters(posts, cluster_labels):
 
     # Get text from each cluster
     import nltk
@@ -84,14 +97,14 @@ def text_from_clusters(posts, c):
     from gensim import corpora, matutils
     import string
 
-    n_clust = len(np.unique(c))
+    n_clust = len(np.unique(cluster_labels))
 
     docs = posts['text'].values
     tokened_docs = [word_tokenize(doc) for doc in docs]
 
     cluster_tokens = [[]] * n_clust
     for ind, doc in enumerate(tokened_docs):
-        cluster_tokens[c[ind]] = cluster_tokens[c[ind]] + doc
+        cluster_tokens[cluster_labels[ind]] = cluster_tokens[cluster_labels[ind]] + doc
 
     # remove funny characters and spaces
     chars = string.punctuation + ' '
@@ -102,7 +115,7 @@ def text_from_clusters(posts, c):
     bow_corp = [dictionary.doc2bow(doc) for doc in docs_cleaned]
     token_freq = matutils.corpus2dense(bow_corp, len(dictionary.token2id.keys()))
 
-    # normalize words by occurence
+    # normalize words by occurrence
     from sklearn.feature_extraction.text import TfidfTransformer
     transformer = TfidfTransformer()
 
@@ -188,71 +201,4 @@ def text_from_clusters(posts, c):
 #
 #     return graffiti, flickr, prices
 #
-# def get_neighborhood(loc_str):
-#     # Get Flickr API's neighborhood name; throttled at 1/s
-#
-#     # Flickr API stuffs
-#     api_key = '2a8751a5d69541e6c28667835c35cf11'
-#     api_secret = '6628ef02693fe943'
-#     flickr_api = flickrapi.FlickrAPI(api_key, api_secret)
-#
-#     (latitude, longitude) = eval(loc_str)
-#
-#     # query API
-#     time.sleep(1) # Flickr limits 3600/hour
-#     temp_resp = json.loads(flickr_api.places.findByLatLon(lat=latitude, lon=longitude, format='json'))
-#
-#     # note non-neighborhood names
-#     neighborhood = temp_resp['places']['place'][0]['woe_name']
-#     if temp_resp['places']['place'][0]['place_type'] != 'neighbourhood':
-#         print '%s is not a neighborhood, is %s ' % (temp_resp['places']['place'][0]['woe_name'], temp_resp['places']['place'][0]['place_type'])
-#
-#     return neighborhood
 
-# def google_map(flickr_loc, city_loc):
-#     # show a Google map of requested lat long pairs
-#     marker_colors = ['red', 'orange', 'yellow', 'green', 'blue', 'purple']
-#     bad_marker_colors = ['orange']
-#
-#
-#     # PASS THE FOLLOWING LINE:
-#     # flickr_loc = flickr[flickr['datetaken'] > pd.datetime(2015, 1, 1)][['latitude','longitude']]
-#     flickr_array = flickr_loc.get_values()
-#
-#     # PASS THE FOLLOWING:
-#     # city_loc = graffiti[graffiti['Opened'] > pd.datetime(2015, 1, 1)][['latitude','longitude']]
-#     city_array = city_loc.get_values()
-#
-#     # Generate URL with markers
-#     base_url = 'http://maps.googleapis.com/maps/api/staticmap?&size=1000x1000&sensor=false]'
-#
-#     url_param = ''
-#     # markers for good hotspots
-#     url_param = '&markers=size:mid%%7Ccolor:%s' %marker_colors[0]
-#     for ind in range(0, 15):
-#         url_param += '&markers=size:mid%%7Ccolor:%s%%7Clabel:%i' \
-#                      % (marker_colors[0], 1)
-#         url_param += '%%7C%f,%f' %(flickr_array[ind, 0], flickr_array[ind, 1])
-#
-#     url_param +=  '&markers=size:mid%%7Ccolor:%s' %marker_colors[0]
-#     for ind in range(0, 15):
-#         url_param += '&markers=size:mid%%7Ccolor:%s%%7Clabel:%i' \
-#                      % (marker_colors[1], 2)
-#         url_param += '%%7C%f,%f' %(city_array[ind, 0], city_array[ind, 1])
-#
-#
-#     image_bytes = urllib.urlopen(base_url+url_param).read()
-#     image = Image.open(StringIO(image_bytes))  # StringIO makes file object out of image data
-#
-#     Image._show(image)
-#
-#     return
-#
-#
-# def get_lat(loc_str):
-#     (lat, lng) = eval(loc_str)
-#     return lat
-#
-# def get_lng(loc_str):
-#     (lat, lng) = eval(loc_str)
-#     return lng
