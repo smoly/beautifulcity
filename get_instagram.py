@@ -3,6 +3,8 @@ import csv
 import time
 from datetime import datetime
 import traceback
+import config
+import isodate
 
 # write list of posts to csv file, used below
 def read_write(result):
@@ -43,13 +45,14 @@ def read_write(result):
     return entries
 
 # first query
-#TODO: move to config
+insta_start_date = '2014-06-01T00'
+max_tag_id = isodate.parse_datetime(insta_start_date).strftime('%s%f')
+
 start_time = time.time()
-access_token = '186061903.1fb234f.7e84aa71760b44cb9ab34f42a8ba00b0'
-query_url = 'https://api.instagram.com/v1/tags/streetart/media/recent?access_token=%s' % access_token
+
+query_url = 'https://api.instagram.com/v1/tags/streetart/media/recent?access_token=%s&max_tag_id=%s' % (config.instagram['access_token'], max_tag_id)
 
 # open file
-max_entries = 10000.
 n_entries_SF = 0
 n_entries_all = 0
 
@@ -68,7 +71,7 @@ with open('/Users/Alexandra/Dropbox/Projects/Insight/tagsf/data/instagram_data_w
     n_entries_all += new_entries[1]
 
     next_url = resp.json()['pagination']['next_url']
-    while True:
+    while True: # get data forever!
         try:
             # throttle to 3600/hour
             end = time.time()
@@ -93,4 +96,3 @@ with open('/Users/Alexandra/Dropbox/Projects/Insight/tagsf/data/instagram_data_w
         except Exception, e:
             print 'caught error in body, continuing: %s' % e
             traceback.print_exc()
-
