@@ -81,7 +81,7 @@ def make_map(map_center, posts, cluster_labels):
                           radius=1,
                           line_color=marker_col[ind],
                           fill_color=marker_col[ind],
-                          popup=img)
+                          popup=str(cluster_labels[ind]))
 
 
     map.create_map(path='%s/map.html' % (config.paths['templates']))
@@ -95,22 +95,25 @@ def text_from_clusters(posts, cluster_labels, top_n=10):
     from gensim import corpora, matutils
     import string
 
-    n_clust = len(np.unique(cluster_labels))
+    n_clust = len(set(cluster_labels)) - (1 if -1 in cluster_labels else 0)
 
     docs = posts['text'].values
-    tokened_docs = [word_tokenize(doc) for doc in docs]
+    tokened_docs = [word_tokenize(doc) if doc is not None else ['#'] for doc in docs]
 
     cluster_tokens = [[]] * n_clust
     for ind, doc in enumerate(tokened_docs):
-        cluster_tokens[cluster_labels[ind]] = cluster_tokens[cluster_labels[ind]] + doc
+        if cluster_labels[ind] == -1:
+            pass # ignore points not considered to be in a cluster
+        else:
+            cluster_tokens[cluster_labels[ind]] = cluster_tokens[cluster_labels[ind]] + doc
 
     # remove funny characters and spaces
     chars = string.punctuation + ' '
     temp_cleaned = [[''.join(ch for ch in word.lower() if ch not in chars) for word in doc] for doc in cluster_tokens]
-    docs_cleaned = [[word for word in doc if word != ''] for doc in temp_cleaned]
+    cluster_tokens_cleaned = [[word for word in doc if word != ''] for doc in temp_cleaned]
 
-    dictionary = corpora.dictionary.Dictionary(docs_cleaned) # indexing: dictionary.token2id['streetart']
-    bow_corp = [dictionary.doc2bow(doc) for doc in docs_cleaned]
+    dictionary = corpora.dictionary.Dictionary(cluster_tokens_cleaned) # indexing: dictionary.token2id['streetart']
+    bow_corp = [dictionary.doc2bow(doc) for doc in cluster_tokens_cleaned]
     token_freq = matutils.corpus2dense(bow_corp, len(dictionary.token2id.keys()))
 
     # normalize words by occurrence
@@ -141,7 +144,7 @@ def text_from_clusters(posts, cluster_labels, top_n=10):
         else:
             top_n_words[ind] = [cluster[0]] + temp
 
-    return top_n_words
+    return top_n_words, cluster_tokens_cleaned
 
 
 def text_recent(posts, cluster_geo, recent_start_date=pd.datetime(2014,12,1), top_n=10):
