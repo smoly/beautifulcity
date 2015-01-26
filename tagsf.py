@@ -1,23 +1,9 @@
 import pandas as pd
 import numpy as np
-import urllib
-import json
-import time
-from datetime import datetime
-from PIL import Image
-from cStringIO import StringIO
 import config
-from load_instagram import load_instagram
-
-# Query for recent posts:
-# TODO: add lat long for new instagram data
-# TODO: make SQL!
-instagram = load_instagram()
-max_date = pd.datetime(2015, 1, 10)
-inst = instagram[instagram['date'] > max_date]
 
 
-def cluster_geo(posts, method='dbscan', eps=0.002, min_samples=5):
+def cluster_geo(posts, method='dbscan', eps=0.15, min_samples=5):
     # cluster_labels = cluster_geo(posts, method='dbscan', eps=0.002, min_samples=5)
     #
     #   posts: dataframe, needs columns ['lat', 'long']
@@ -45,8 +31,9 @@ def cluster_geo(posts, method='dbscan', eps=0.002, min_samples=5):
         from sklearn.datasets.samples_generator import make_blobs
         from sklearn.preprocessing import StandardScaler
 
+        standardized = StandardScaler().fit_transform(posts[['lat', 'long']].values)
 
-        db = DBSCAN(eps=eps, min_samples=min_samples).fit(posts[['lat', 'long']].values)
+        db = DBSCAN(eps=eps, min_samples=min_samples).fit(standardized)
         core_samples_mask = np.zeros_like(db.labels_, dtype=bool)
         core_samples_mask[db.core_sample_indices_] = True
         cluster_labels = db.labels_
@@ -59,40 +46,51 @@ def cluster_geo(posts, method='dbscan', eps=0.002, min_samples=5):
 
     return cluster_labels
 
-def make_map(posts, cluster_labels):
+
+def make_map(map_center, posts, cluster_labels):
     import colorsys
     from colors import rgb
     import os
     import folium
     import seaborn as sns
 
-    cols = sns.color_palette("Set2", n_colors=len(np.unique(cluster_labels)))
+    cols = sns.color_palette("hls", n_colors=len(np.unique(cluster_labels)))
     marker_col = ['#%s' % str(rgb(cols[ic][0]*255, cols[ic][1]*255, cols[ic][2]*255).hex) for ic in cluster_labels]
 
     # Check if map file already exists
     if os.path.exists('%s/map.html' % (config.paths['templates'])):
-        print 'removing file'
+        # print 'removing file'
         os.remove('%s/map.html' % (config.paths['templates']))
 
-    # TODO: make global lat long
-    # query google api
-    map = folium.Map(location=[37.7833, -122.4167], zoom_start=13, tiles='Stamen Toner')
-    map.create_map(path='%s/map.html' % (config.paths['templates'])) #TODO: take out
+    # TODO: make global lat long,query google api
+
+    map = folium.Map(location=map_center, zoom_start=13, tiles='Stamen Toner')
+    # map.create_map(path='%s/map.html' % (config.paths['templates']))
 
     # markers
     for ind, row in enumerate(posts.iterrows()):
-        map.circle_marker([row[1]['lat'], row[1]['long']],
-                      radius=20,
-                      line_color=marker_col[ind],
-                      fill_color=marker_col[ind],
-                      popup=str(cluster_labels[ind]))
+        img = '<a><img src='+row[1]['image_url']+' height="150px" width="200px"></a>'
+        if cluster_labels[ind] == -1:
+            map.circle_marker([row[1]['lat'], row[1]['long']],
+                          radius=1,
+                          line_color='#000000',
+                          fill_color='#000000',
+                          popup=img)
+        else:
+            map.circle_marker([row[1]['lat'], row[1]['long']],
+                          radius=1,
+                          line_color=marker_col[ind],
+                          fill_color=marker_col[ind],
+                          popup=img)
+
 
     map.create_map(path='%s/map.html' % (config.paths['templates']))
 
-def text_from_clusters(posts, cluster_labels):
+
+def text_from_clusters(posts, cluster_labels, top_n=10):
+    # top_n_words = text_from_clusters(posts, cluster_labels, top_n=10)
 
     # Get text from each cluster
-    import nltk
     from nltk.tokenize import word_tokenize
     from gensim import corpora, matutils
     import string
@@ -135,16 +133,115 @@ def text_from_clusters(posts, cluster_labels):
                 if np.sum(token_freq[dictionary.token2id[word]]) > 1:
                     unusual_tokens[ind_cluster] = unusual_tokens[ind_cluster] + [(str(word), token_freq[dictionary.token2id[word], ind_cluster])]
 
-    top_10 = [[]] * n_clust
+    top_n_words = [[]] * n_clust
     for ind, cluster in enumerate(unusual_tokens):
         temp = sorted(cluster[1:],key=lambda x: x[1], reverse=True)
-        if len(temp) > 10:
-            top_10[ind] = [cluster[0]] + temp[:9]
+        if len(temp) > top_n:
+            top_n_words[ind] = [cluster[0]] + temp[:top_n-1]
         else:
-            top_10[ind] = [cluster[0]] + temp
+            top_n_words[ind] = [cluster[0]] + temp
 
-    return top_10
+    return top_n_words
 
+
+def text_recent(posts, cluster_geo, recent_start_date=pd.datetime(2014,12,1), top_n=10):
+    # top_n_words = text_recent(posts, cluster_geo, recent_start_date=pd.datetime(2014,12,1), top_n=10)
+
+    from nltk.tokenize import word_tokenize
+    from gensim import corpora, matutils
+    import string
+    from sklearn.feature_extraction.text import TfidfTransformer
+
+    print 'recent_start_date = %s' % recent_start_date
+
+    top_n_words = [[]] * len(cluster_geo)
+    for ind, cluster in enumerate(cluster_geo):
+
+        # # Get the "recent" docs from this cluster
+        docs_recent_raw = posts[(posts['date'] >= recent_start_date)
+                     & (posts['lat'] >= cluster[0])
+                     & (posts['lat'] <= cluster[1])
+                     & (posts['long'] >= cluster[2])
+                     & (posts['long'] <= cluster[3])]['text'].values
+
+        # remove nans
+        docs_recent = []
+        for doc in docs_recent_raw:
+            if type(doc) == str:
+                docs_recent = docs_recent + [doc]
+        # tokenize, flatten into one
+        tokened_recent = [word_tokenize(doc) for doc in docs_recent]
+        flat_recent = []
+        for doc in tokened_recent:
+            flat_recent = flat_recent + doc
+
+
+        # # Get the "old" docs (each text post)
+        docs_old_raw = posts[(posts['date'] < recent_start_date) # important = all of history in the dataset here, before "this week"
+                     & (posts['lat'] >= cluster[0])
+                     & (posts['lat'] <= cluster[1])
+                     & (posts['long'] >= cluster[2])
+                     & (posts['long'] <= cluster[3])]['text'].values
+        # remove nans
+        docs_old = []
+        for doc in docs_old_raw:
+            if type(doc) == str:
+                docs_old = docs_old + [doc]
+
+        # tokenize, flatten into one
+        tokened_old = [word_tokenize(doc) for doc in docs_old]
+        flat_old = []
+        for doc in tokened_old:
+            flat_old = flat_old + doc
+
+        # Combine and clean
+        docs = [flat_old, flat_recent]
+
+        chars = string.punctuation + ' '
+        temp_cleaned = [[''.join(ch for ch in word.lower() if ch not in chars) for word in doc] for doc in docs]
+        docs_cleaned = [[word for word in doc if word != ''] for doc in temp_cleaned]
+
+        dictionary = corpora.dictionary.Dictionary(docs_cleaned) # indexing: dictionary.token2id['streetart']
+        bow_corp = [dictionary.doc2bow(doc) for doc in docs_cleaned]
+        token_freq = matutils.corpus2dense(bow_corp, len(dictionary.token2id.keys()))
+
+        # normalize words by occurrence
+        transformer = TfidfTransformer()
+
+        tfidf = transformer.fit_transform(token_freq)
+        norm_token_freq = tfidf.toarray()
+
+        words = dictionary.token2id.keys()
+
+        # Pick out unusual words
+        threshold = 0.9
+        unusual_tokens = []
+        for word in words:
+            if norm_token_freq[dictionary.token2id[word],1] > threshold:
+                if np.sum(token_freq[dictionary.token2id[word]]) > 1:
+                    unusual_tokens = unusual_tokens + [(str(word), token_freq[dictionary.token2id[word], 1])]
+
+        # get top 10
+        temp = sorted(unusual_tokens,key=lambda x: x[1], reverse=True)
+        if len(temp) >= top_n:
+            top_n_words[ind] = temp[:top_n]
+        else:
+            top_n_words[ind] = temp
+
+    return top_n_words
+
+
+def cluster_geo_box(posts, cluster_labels):
+    # Get bounding boxes for each cluster
+    n_clust = len(set(cluster_labels)) - (1 if -1 in cluster_labels else 0)
+    cluster_geo = [[]] * n_clust
+    for ind, cluster in enumerate(range(0, n_clust)):
+        cluster_geo[ind] = (min(posts[cluster_labels == cluster]['lat']),
+                          max(posts[cluster_labels == cluster]['lat']),
+                          min(posts[cluster_labels == cluster]['long']),
+                          max(posts[cluster_labels == cluster]['long']))
+
+    return cluster_geo
 
 
 # def load_data(reload):
