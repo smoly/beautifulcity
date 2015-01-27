@@ -41,11 +41,34 @@ def cities_page_fancy():
 
 @app.route("/tag")
 def tag_home():
+    import pandas as pd
     import tagsf as tg
+    import sqlalchemy
+    import geo_util
 
-    c = tg.cluster_geo(tg.inst)
-    tg.make_map(tg.inst, c)
 
-    top_10 = tg.text_from_clusters(tg.inst, c)
+    #TODO: make loc name an input!
+    loc_name = 'San Francisco'
+    loc = geo_util.google_geo(loc_name)
+    geo_box = geo_util.geo_bounds([loc['lat'], loc['lng']], distance=9)
 
-    return render_template('tag_home.html', unusual_tokens=top_10)
+    # query data
+    engine = sqlalchemy.create_engine('mysql://root@localhost') # connect to server
+    engine.execute('use tagus') # select new db
+
+    sql_query = '''select date, lat, `long`, image_url, likes, text
+                from instagram
+                where `date` > '2015-01-10'
+                and lat between %s and %s
+                and `long` between %s and %s''' % (geo_box[0], geo_box[1],  geo_box[2],  geo_box[3])
+
+    posts = pd.read_sql_query(sql_query, engine, parse_dates=['date'])
+
+    cluster_id = tg.cluster_geo(posts)
+    tg.make_map([loc['lat'], loc['lng']], posts, cluster_id)
+
+    top_n, cluster_tokens = tg.text_from_clusters(posts, cluster_id)
+
+    artists_found = tg.find_artists(cluster_tokens)
+
+    return render_template('tag_home.html', unusual_tokens=artists_found)

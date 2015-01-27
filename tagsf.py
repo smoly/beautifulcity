@@ -100,7 +100,7 @@ def text_from_clusters(posts, cluster_labels, top_n=10):
     docs = posts['text'].values
     tokened_docs = [word_tokenize(doc) if doc is not None else ['#'] for doc in docs]
 
-    cluster_tokens = [[]] * n_clust
+    cluster_tokens = [[]] * n_clust # only includes clusters that are labeled (not "noise")
     for ind, doc in enumerate(tokened_docs):
         if cluster_labels[ind] == -1:
             pass # ignore points not considered to be in a cluster
@@ -108,9 +108,11 @@ def text_from_clusters(posts, cluster_labels, top_n=10):
             cluster_tokens[cluster_labels[ind]] = cluster_tokens[cluster_labels[ind]] + doc
 
     # remove funny characters and spaces
+    bad_words = [' ', 'san', 'in', 'the']
     chars = string.punctuation + ' '
     temp_cleaned = [[''.join(ch for ch in word.lower() if ch not in chars) for word in doc] for doc in cluster_tokens]
-    cluster_tokens_cleaned = [[word for word in doc if word != ''] for doc in temp_cleaned]
+    temp_cleaned = [[word for word in doc if len(word) > 1] for doc in temp_cleaned]
+    cluster_tokens_cleaned = [[word for word in doc if word not in bad_words] for doc in temp_cleaned]
 
     dictionary = corpora.dictionary.Dictionary(cluster_tokens_cleaned) # indexing: dictionary.token2id['streetart']
     bow_corp = [dictionary.doc2bow(doc) for doc in cluster_tokens_cleaned]
@@ -128,12 +130,12 @@ def text_from_clusters(posts, cluster_labels, top_n=10):
     # Pick out unusual words
     threshold = 0.7
 
-    # really horribly add cluster number into first element of list for web interface...
+    # FIXME: really horribly add cluster number into first element of list for web interface...
     unusual_tokens = [[x] for x in range(0,n_clust)] #* n_clust
     for word in words:
         for ind_cluster, p in enumerate(norm_token_freq[dictionary.token2id[word],:]):
             if p > threshold:
-                if np.sum(token_freq[dictionary.token2id[word]]) > 1:
+                if np.sum(token_freq[dictionary.token2id[word]]) > 1: # check appear more than once in entire corpus
                     unusual_tokens[ind_cluster] = unusual_tokens[ind_cluster] + [(str(word), token_freq[dictionary.token2id[word], ind_cluster])]
 
     top_n_words = [[]] * n_clust
@@ -147,92 +149,33 @@ def text_from_clusters(posts, cluster_labels, top_n=10):
     return top_n_words, cluster_tokens_cleaned
 
 
-def text_recent(posts, cluster_geo, recent_start_date=pd.datetime(2014,12,1), top_n=10):
-    # top_n_words = text_recent(posts, cluster_geo, recent_start_date=pd.datetime(2014,12,1), top_n=10)
+def find_artists(cluster_tokens, city='San Francisco'):
+    # artists_found = find_artists(cluster_tokens, city='San Francisco')
 
-    from nltk.tokenize import word_tokenize
-    from gensim import corpora, matutils
-    import string
-    from sklearn.feature_extraction.text import TfidfTransformer
+    # Get list of artists
+    world = pd.read_csv('%s/%s' % (config.paths['data'], config.filenames['artists_world']))
 
-    print 'recent_start_date = %s' % recent_start_date
+    # GET SF ARTISTS:
+    grouped = world.groupby('city')
+    names = [str.lower(name) for name, stuff in grouped.get_group(city).groupby('name')]
 
-    top_n_words = [[]] * len(cluster_geo)
-    for ind, cluster in enumerate(cluster_geo):
+    if city == 'San Francisco':
+        sf = pd.read_csv('%s/%s' % (config.paths['data'], config.filenames['artists_SF']))
+        names_sf = [str.lower(name) for name in sf['name'].values]
+        names = list(set(names_sf + names))
 
-        # # Get the "recent" docs from this cluster
-        docs_recent_raw = posts[(posts['date'] >= recent_start_date)
-                     & (posts['lat'] >= cluster[0])
-                     & (posts['lat'] <= cluster[1])
-                     & (posts['long'] >= cluster[2])
-                     & (posts['long'] <= cluster[3])]['text'].values
+    bad_chars = '. '
+    clean_names = [''.join(ch for ch in name if ch not in bad_chars) for name in names]
 
-        # remove nans
-        docs_recent = []
-        for doc in docs_recent_raw:
-            if type(doc) == str:
-                docs_recent = docs_recent + [doc]
-        # tokenize, flatten into one
-        tokened_recent = [word_tokenize(doc) for doc in docs_recent]
-        flat_recent = []
-        for doc in tokened_recent:
-            flat_recent = flat_recent + doc
+    artists_found = [list(set(cluster) & set(clean_names)) for cluster in cluster_tokens]
 
+    # count number of times each artist was mentioned
+    artist_count = [[x] for x in range(0, len(artists_found))] # [[]] * len(cluster_tokens)
+    for ind, artists_in_cluster in enumerate(artists_found):
+        for artist in artists_in_cluster:
+            artist_count[ind] = artist_count[ind] + [(artist, cluster_tokens[ind].count(artist))]
 
-        # # Get the "old" docs (each text post)
-        docs_old_raw = posts[(posts['date'] < recent_start_date) # important = all of history in the dataset here, before "this week"
-                     & (posts['lat'] >= cluster[0])
-                     & (posts['lat'] <= cluster[1])
-                     & (posts['long'] >= cluster[2])
-                     & (posts['long'] <= cluster[3])]['text'].values
-        # remove nans
-        docs_old = []
-        for doc in docs_old_raw:
-            if type(doc) == str:
-                docs_old = docs_old + [doc]
-
-        # tokenize, flatten into one
-        tokened_old = [word_tokenize(doc) for doc in docs_old]
-        flat_old = []
-        for doc in tokened_old:
-            flat_old = flat_old + doc
-
-        # Combine and clean
-        docs = [flat_old, flat_recent]
-
-        chars = string.punctuation + ' '
-        temp_cleaned = [[''.join(ch for ch in word.lower() if ch not in chars) for word in doc] for doc in docs]
-        docs_cleaned = [[word for word in doc if word != ''] for doc in temp_cleaned]
-
-        dictionary = corpora.dictionary.Dictionary(docs_cleaned) # indexing: dictionary.token2id['streetart']
-        bow_corp = [dictionary.doc2bow(doc) for doc in docs_cleaned]
-        token_freq = matutils.corpus2dense(bow_corp, len(dictionary.token2id.keys()))
-
-        # normalize words by occurrence
-        transformer = TfidfTransformer()
-
-        tfidf = transformer.fit_transform(token_freq)
-        norm_token_freq = tfidf.toarray()
-
-        words = dictionary.token2id.keys()
-
-        # Pick out unusual words
-        threshold = 0.9
-        unusual_tokens = []
-        for word in words:
-            if norm_token_freq[dictionary.token2id[word],1] > threshold:
-                if np.sum(token_freq[dictionary.token2id[word]]) > 1:
-                    unusual_tokens = unusual_tokens + [(str(word), token_freq[dictionary.token2id[word], 1])]
-
-        # get top 10
-        temp = sorted(unusual_tokens,key=lambda x: x[1], reverse=True)
-        if len(temp) >= top_n:
-            top_n_words[ind] = temp[:top_n]
-        else:
-            top_n_words[ind] = temp
-
-    return top_n_words
-
+    return artist_count
 
 def cluster_geo_box(posts, cluster_labels):
     # Get bounding boxes for each cluster
@@ -245,6 +188,93 @@ def cluster_geo_box(posts, cluster_labels):
                           max(posts[cluster_labels == cluster]['long']))
 
     return cluster_geo
+
+#TODO: remove text_recent??
+# def text_recent(posts, cluster_geo, recent_start_date=pd.datetime(2014,12,1), top_n=10):
+#     # top_n_words = text_recent(posts, cluster_geo, recent_start_date=pd.datetime(2014,12,1), top_n=10)
+#
+#     from nltk.tokenize import word_tokenize
+#     from gensim import corpora, matutils
+#     import string
+#     from sklearn.feature_extraction.text import TfidfTransformer
+#
+#     print 'recent_start_date = %s' % recent_start_date
+#
+#     top_n_words = [[]] * len(cluster_geo)
+#     for ind, cluster in enumerate(cluster_geo):
+#         # # Get the "recent" docs from this cluster
+#         docs_recent_raw = posts[(posts['date'] >= recent_start_date)
+#                      & (posts['lat'] >= cluster[0])
+#                      & (posts['lat'] <= cluster[1])
+#                      & (posts['long'] >= cluster[2])
+#                      & (posts['long'] <= cluster[3])]['text'].values
+#
+#         # remove nans
+#         docs_recent = []
+#         for doc in docs_recent_raw:
+#             if type(doc) == str:
+#                 docs_recent = docs_recent + [doc]
+#         # tokenize, flatten into one
+#         tokened_recent = [word_tokenize(doc) for doc in docs_recent]
+#         flat_recent = []
+#         for doc in tokened_recent:
+#             flat_recent = flat_recent + doc
+#
+#
+#         # # Get the "old" docs (each text post)
+#         docs_old_raw = posts[(posts['date'] < recent_start_date) # important = all of history in the dataset here, before "this week"
+#                      & (posts['lat'] >= cluster[0])
+#                      & (posts['lat'] <= cluster[1])
+#                      & (posts['long'] >= cluster[2])
+#                      & (posts['long'] <= cluster[3])]['text'].values
+#         # remove nans
+#         docs_old = []
+#         for doc in docs_old_raw:
+#             if type(doc) == str:
+#                 docs_old = docs_old + [doc]
+#
+#         # tokenize, flatten into one
+#         tokened_old = [word_tokenize(doc) for doc in docs_old]
+#         flat_old = []
+#         for doc in tokened_old:
+#             flat_old = flat_old + doc
+#
+#         # Combine and clean
+#         docs = [flat_old, flat_recent]
+#
+#         chars = string.punctuation + ' '
+#         temp_cleaned = [[''.join(ch for ch in word.lower() if ch not in chars) for word in doc] for doc in docs]
+#         docs_cleaned = [[word for word in doc if word != ''] for doc in temp_cleaned]
+#
+#         dictionary = corpora.dictionary.Dictionary(docs_cleaned) # indexing: dictionary.token2id['streetart']
+#         bow_corp = [dictionary.doc2bow(doc) for doc in docs_cleaned]
+#         token_freq = matutils.corpus2dense(bow_corp, len(dictionary.token2id.keys()))
+#
+#         # normalize words by occurrence
+#         transformer = TfidfTransformer()
+#
+#         tfidf = transformer.fit_transform(token_freq)
+#         norm_token_freq = tfidf.toarray()
+#
+#         words = dictionary.token2id.keys()
+#
+#         # Pick out unusual words
+#         threshold = 0.9
+#         unusual_tokens = []
+#         for word in words:
+#             if norm_token_freq[dictionary.token2id[word],1] > threshold:
+#                 if np.sum(token_freq[dictionary.token2id[word]]) > 1:
+#                     unusual_tokens = unusual_tokens + [(str(word), token_freq[dictionary.token2id[word], 1])]
+#
+#         # get top 10
+#         temp = sorted(unusual_tokens,key=lambda x: x[1], reverse=True)
+#         if len(temp) >= top_n:
+#             top_n_words[ind] = temp[:top_n]
+#         else:
+#             top_n_words[ind] = temp
+#
+#     return top_n_words
+
 
 
 # def load_data(reload):
