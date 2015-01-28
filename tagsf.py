@@ -3,7 +3,7 @@ import numpy as np
 import config
 
 
-def cluster_geo(posts, method='dbscan', eps=0.15, min_samples=5):
+def cluster_geo(posts, method='dbscan', eps=0.15, min_samples=10):
     # cluster_labels = cluster_geo(posts, method='dbscan', eps=0.002, min_samples=5)
     #
     #   posts: dataframe, needs columns ['lat', 'long']
@@ -12,11 +12,12 @@ def cluster_geo(posts, method='dbscan', eps=0.15, min_samples=5):
     #           eps
     #           min_samples
 
-    from sklearn.cluster import KMeans
-    from sklearn.cluster import DBSCAN
-    from sklearn import metrics
+    from geopy.distance import vincenty
+
+    print 'Clustering %i points: ' % posts.shape[0]
 
     if method.lower() == 'kmeans':
+        from sklearn.cluster import KMeans
         print 'clustering lat,long by kmeans'
 
         # Classify into n_clusters:
@@ -28,12 +29,19 @@ def cluster_geo(posts, method='dbscan', eps=0.15, min_samples=5):
 
     elif method.lower() == 'dbscan':
         print 'clustering lat,long by dbscan'
+
+        # if posts.shape[0]
+
+        from sklearn.cluster import DBSCAN
+        from sklearn import metrics
         from sklearn.datasets.samples_generator import make_blobs
         from sklearn.preprocessing import StandardScaler
 
         standardized = StandardScaler().fit_transform(posts[['lat', 'long']].values)
 
+        # eps = 0.2
         db = DBSCAN(eps=eps, min_samples=min_samples).fit(standardized)
+        # db = DBSCAN(eps=eps, min_samples=min_samples).fit(standardized)
         core_samples_mask = np.zeros_like(db.labels_, dtype=bool)
         core_samples_mask[db.core_sample_indices_] = True
         cluster_labels = db.labels_
@@ -43,6 +51,22 @@ def cluster_geo(posts, method='dbscan', eps=0.15, min_samples=5):
 
         print('Estimated number of clusters: %d' % n_clust)
         print("Silhouette Coefficient: %0.3f" % metrics.silhouette_score(posts[['lat', 'long']].values, cluster_labels))
+
+        # TODO: Loop through clusters, and remove those that are too large
+        for clust in list(set(cluster_labels[cluster_labels>=0])):
+            # dat = posts
+            geo_mean = posts.loc[cluster_labels == clust, ['lat', 'long']].mean()
+            geo_std = posts.loc[cluster_labels == clust, ['lat', 'long']].std()
+
+            lat_range = vincenty((geo_mean['lat'] - 2*geo_std['lat'], geo_mean['long']),
+                                 (geo_mean['lat'] + 2*geo_std['lat'], geo_mean['long'])).miles
+            long_range = vincenty((geo_mean['lat'], geo_mean['long'] - 2*geo_std['long']),
+                                 (geo_mean['lat'], geo_mean['long'] + 2*geo_std['long'])).miles
+
+            # foo = lat_range * long_range
+            # if (lat_range * long_range) > 2:
+            #     print 'cluster %i is %.3f, removing' % (clust, foo)
+            #     cluster_labels[cluster_labels == clust] = -1 # remove cluster
 
     return cluster_labels
 
@@ -54,7 +78,7 @@ def make_map(map_center, posts, cluster_labels):
     import folium
     import seaborn as sns
 
-    cols = sns.color_palette("hls", n_colors=len(np.unique(cluster_labels)))
+    cols = sns.color_palette("hls", n_colors=max(cluster_labels)+1)
     marker_col = ['#%s' % str(rgb(cols[ic][0]*255, cols[ic][1]*255, cols[ic][2]*255).hex) for ic in cluster_labels]
 
     # Check if map file already exists
@@ -64,7 +88,7 @@ def make_map(map_center, posts, cluster_labels):
 
     # TODO: make global lat long,query google api
 
-    map = folium.Map(location=map_center, zoom_start=13, tiles='Stamen Toner')
+    map = folium.Map(location=map_center, zoom_start=12, width='100%', height=500, tiles='Stamen Toner')
     # map.create_map(path='%s/map.html' % (config.paths['templates']))
 
     # markers
@@ -81,7 +105,7 @@ def make_map(map_center, posts, cluster_labels):
                           radius=1,
                           line_color=marker_col[ind],
                           fill_color=marker_col[ind],
-                          popup=str(cluster_labels[ind]))
+                          popup=img) # str(cluster_labels[ind])
 
 
     map.create_map(path='%s/map.html' % (config.paths['templates']))
@@ -95,12 +119,13 @@ def text_from_clusters(posts, cluster_labels, top_n=10):
     from gensim import corpora, matutils
     import string
 
-    n_clust = len(set(cluster_labels)) - (1 if -1 in cluster_labels else 0)
+    # n_clust = len(set(cluster_labels)) - (1 if -1 in cluster_labels else 0)
+    n_clust = max(cluster_labels)+1
 
     docs = posts['text'].values
     tokened_docs = [word_tokenize(doc) if doc is not None else ['#'] for doc in docs]
 
-    cluster_tokens = [[]] * n_clust # only includes clusters that are labeled (not "noise")
+    cluster_tokens = [[]] *  n_clust # only includes clusters that are labeled (not "noise")
     for ind, doc in enumerate(tokened_docs):
         if cluster_labels[ind] == -1:
             pass # ignore points not considered to be in a cluster
@@ -188,6 +213,20 @@ def cluster_geo_box(posts, cluster_labels):
                           max(posts[cluster_labels == cluster]['long']))
 
     return cluster_geo
+
+def make_word_cloud(text):
+# text expected to be a list of [(word, count), ...]
+    from wordcloud import WordCloud
+
+    big_string = ''
+    for word in text:
+        big_string = big_string + ''.join((word[0]+' ') * word[1])
+
+    wc = WordCloud(background_color="white", font_path='/Library/Fonts/NanumScript.ttc').generate(big_string)
+    wc.generate(big_string)
+    wc.to_file("app/templates/test_cloud.png")
+
+
 
 #TODO: remove text_recent??
 # def text_recent(posts, cluster_geo, recent_start_date=pd.datetime(2014,12,1), top_n=10):
@@ -331,4 +370,3 @@ def cluster_geo_box(posts, cluster_labels):
 #
 #     return graffiti, flickr, prices
 #
-
