@@ -3,7 +3,9 @@ import numpy as np
 import config
 
 
-def cluster_geo(posts, method='dbscan', eps=0.15, min_samples=10):
+def cluster_geo(posts,
+                method='dbscan', eps=0.15, min_samples=10,
+                max_cluster_size=float('inf')):
     # cluster_labels = cluster_geo(posts, method='dbscan', eps=0.002, min_samples=5)
     #
     #   posts: dataframe, needs columns ['lat', 'long']
@@ -52,7 +54,6 @@ def cluster_geo(posts, method='dbscan', eps=0.15, min_samples=10):
         print('Estimated number of clusters: %d' % n_clust)
         print("Silhouette Coefficient: %0.3f" % metrics.silhouette_score(posts[['lat', 'long']].values, cluster_labels))
 
-        # TODO: Loop through clusters, and remove those that are too large
         for clust in list(set(cluster_labels[cluster_labels>=0])):
             # dat = posts
             geo_mean = posts.loc[cluster_labels == clust, ['lat', 'long']].mean()
@@ -63,10 +64,9 @@ def cluster_geo(posts, method='dbscan', eps=0.15, min_samples=10):
             long_range = vincenty((geo_mean['lat'], geo_mean['long'] - 2*geo_std['long']),
                                  (geo_mean['lat'], geo_mean['long'] + 2*geo_std['long'])).miles
 
-            # foo = lat_range * long_range
-            # if (lat_range * long_range) > 2:
-            #     print 'cluster %i is %.3f, removing' % (clust, foo)
-            #     cluster_labels[cluster_labels == clust] = -1 # remove cluster
+            if (lat_range * long_range) > max_cluster_size:
+                print 'cluster %i is %.3f, removing' % (clust, lat_range * long_range)
+                cluster_labels[cluster_labels == clust] = -1 # remove cluster
 
     return cluster_labels
 
@@ -105,14 +105,23 @@ def make_map(map_center, posts, cluster_labels):
                           radius=1,
                           line_color=marker_col[ind],
                           fill_color=marker_col[ind],
-                          popup=img) # str(cluster_labels[ind])
+                          popup=str(cluster_labels[ind])) # str(cluster_labels[ind])
 
 
     map.create_map(path='%s/map.html' % (config.paths['templates']))
 
 
-def text_from_clusters(posts, cluster_labels, top_n=10):
-    # top_n_words = text_from_clusters(posts, cluster_labels, top_n=10)
+def text_from_clusters(posts, cluster_labels, threshold=0.7, top_n=10):
+    ''' extract high tfidf tokens and artist names from each cluster
+
+    unusual_tokens, cluster_tokens_cleaned = text_from_clusters(posts, cluster_labels, threshold=0.7, top_n=10)
+
+    :param posts: DataFrame with 'text' column
+    :param cluster_labels: array of cluster_labels of len=post.shape[0]
+    :param threshold=0.7: tfidf threshold above which to return "unusual" tokens
+    :param top_n: [deprecated] top # tokens to return
+    :return: unusual_tokens, cluster_tokens_cleaned
+    '''
 
     # Get text from each cluster
     from nltk.tokenize import word_tokenize
@@ -153,25 +162,22 @@ def text_from_clusters(posts, cluster_labels, top_n=10):
     words = dictionary.token2id.keys()
 
     # Pick out unusual words
-    threshold = 0.7
-
-    # FIXME: really horribly add cluster number into first element of list for web interface...
-    unusual_tokens = [[x] for x in range(0,n_clust)] #* n_clust
+    unusual_tokens = [[]] * n_clust #[[x] for x in range(0,n_clust)] #* n_clust
     for word in words:
         for ind_cluster, p in enumerate(norm_token_freq[dictionary.token2id[word],:]):
             if p > threshold:
                 if np.sum(token_freq[dictionary.token2id[word]]) > 1: # check appear more than once in entire corpus
                     unusual_tokens[ind_cluster] = unusual_tokens[ind_cluster] + [(str(word), token_freq[dictionary.token2id[word], ind_cluster])]
 
-    top_n_words = [[]] * n_clust
-    for ind, cluster in enumerate(unusual_tokens):
-        temp = sorted(cluster[1:],key=lambda x: x[1], reverse=True)
-        if len(temp) > top_n:
-            top_n_words[ind] = [cluster[0]] + temp[:top_n-1]
-        else:
-            top_n_words[ind] = [cluster[0]] + temp
+    # top_n_words = [[]] * n_clust
+    # for ind, cluster in enumerate(unusual_tokens):
+    #     temp = sorted(cluster[1:],key=lambda x: x[1], reverse=True)
+    #     if len(temp) > top_n:
+    #         top_n_words[ind] = [cluster[0]] + temp[:top_n-1]
+    #     else:
+    #         top_n_words[ind] = [cluster[0]] + temp
 
-    return top_n_words, cluster_tokens_cleaned
+    return unusual_tokens, cluster_tokens_cleaned
 
 
 def find_artists(cluster_tokens, city='San Francisco'):
@@ -195,7 +201,7 @@ def find_artists(cluster_tokens, city='San Francisco'):
     artists_found = [list(set(cluster) & set(clean_names)) for cluster in cluster_tokens]
 
     # count number of times each artist was mentioned
-    artist_count = [[x] for x in range(0, len(artists_found))] # [[]] * len(cluster_tokens)
+    artist_count = [[]] * len(artists_found) #[[x] for x in range(0, len(artists_found))] # [[]] * len(cluster_tokens)
     for ind, artists_in_cluster in enumerate(artists_found):
         for artist in artists_in_cluster:
             artist_count[ind] = artist_count[ind] + [(artist, cluster_tokens[ind].count(artist))]
@@ -214,18 +220,27 @@ def cluster_geo_box(posts, cluster_labels):
 
     return cluster_geo
 
-def make_word_cloud(text):
-# text expected to be a list of [(word, count), ...]
+
+def make_word_cloud(text, save_path):
+    # text expected to a string or a list of [(word, count), ...]
     from wordcloud import WordCloud
+    import os
 
-    big_string = ''
-    for word in text:
-        big_string = big_string + ''.join((word[0]+' ') * word[1])
+    if type(text) == str:
+        big_string = text
+    else:
+        big_string = ''
+        for word in text:
+            big_string = big_string + ''.join((word[0]+' ') * word[1])
 
-    wc = WordCloud(background_color="white", font_path='/Library/Fonts/NanumScript.ttc').generate(big_string)
+    # print 'trying to make cloud: %s' % save_path
+    # print os.getcwd()
+    wc = WordCloud(background_color="white",
+                   max_words=10000,
+                   font_path='app/static/fonts/NanumScript.ttc').generate(big_string)
     wc.generate(big_string)
-    wc.to_file("app/templates/test_cloud.png")
-
+    wc.to_file('app/%s' % save_path)
+    # print 'saving wordcloud to %s' % save_path
 
 
 #TODO: remove text_recent??
