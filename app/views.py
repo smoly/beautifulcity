@@ -96,11 +96,6 @@ def tag_home():
         tg.make_word_cloud(cluster_text, this_path)
 
 
-    # # # TODO replace:
-    # ind = 8
-    # photo_urls = [list(posts.loc[ind*(x+1)-ind:ind*(x+1), 'image_url'].values)
-    #           for x in range(len(cluster_tokens_all))]
-
     photos = tg.top_photos(posts, n_photos=9)
 
     cluster_infos = list(enumerate(zip(wordle_urls, photos)))
@@ -113,28 +108,3 @@ def tag_home():
         ranked_clusters=ranked_clusters,
         cols_hex=cols_hex,
     )
-
-# @app.route('/input')
-# def cities_input():
-#   return render_template("input.html")
-#
-# @app.route('/output')
-# def cities_output():
-#   #pull 'ID' from input field and store it
-#   city = request.args.get('ID')
-#
-#   with db:
-#     cur = db.cursor()
-#     #just select the city from the world_innodb that the user inputs
-#     cur.execute("SELECT Name, CountryCode,  Population FROM City WHERE Name='%s';" % city)
-#     query_results = cur.fetchall()
-#
-#   cities = []
-#   for result in query_results:
-#     cities.append(dict(name=result[0], country=result[1], population=result[2]))
-#   the_result = ''
-#
-#   #call a function from a_Model package. note we are only pulling one result in the query
-#   pop_input = cities[0]['population']
-#   the_result = ModelIt(city, pop_input)
-#   return render_template("output.html", cities = cities, the_result = the_result)
