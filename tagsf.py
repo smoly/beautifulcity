@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import config
+from geopy.distance import vincenty
 
 
 def cluster_geo(posts,
@@ -14,7 +15,6 @@ def cluster_geo(posts,
     #           eps
     #           min_samples
 
-    from geopy.distance import vincenty
 
     print 'Clustering %i points: ' % posts.shape[0]
 
@@ -72,24 +72,36 @@ def cluster_geo(posts,
 
 
 def make_map(map_center, posts, cluster_labels):
+    '''cols_hex = make_map(map_center, posts, cluster_labels)
+
+    :param map_center:
+    :param posts:
+    :param cluster_labels:
+    :return:
+        cols_hex: list of hex colors;
+            NB last one is not used (but is neccessary) so this list is n_clus+1
+    '''
+
     import colorsys
     from colors import rgb
     import os
     import folium
     import seaborn as sns
 
-    cols = sns.color_palette("hls", n_colors=max(cluster_labels)+1)
-    marker_col = ['#%s' % str(rgb(cols[ic][0]*255, cols[ic][1]*255, cols[ic][2]*255).hex) for ic in cluster_labels]
+    # cols = sns.color_palette("hls", n_colors=max(cluster_labels)+1) # last one not used (kludgily reserved to work with -1 labels)
+    # marker_col = ['#%s' % str(rgb(cols[ic][0]*255, cols[ic][1]*255, cols[ic][2]*255).hex) for ic in cluster_labels]
+    # cols_hex = ['#%s' % str(rgb(col[0]*255, col[1]*255, col[2]*255).hex) for col in cols]
+
+    # From color brewer
+    cols_hex = '#a6cee3,#1f78b4,#b2df8a,#33a02c,#fb9a99,#e31a1c,#fdbf6f,#ff7f00,#cab2d6,#6a3d9a,#ffff99,#b15928,#8dd3c7,#ffffb3,#bebada,#fb8072,#80b1d3,#fdb462,#b3de69,#fccde5,#d9d9d9,#bc80bd,#ccebc5,#ffed6f'.split(',') * 24
+    marker_col = [cols_hex[ic] for ic in cluster_labels]
 
     # Check if map file already exists
     if os.path.exists('%s/map.html' % (config.paths['templates'])):
         # print 'removing file'
         os.remove('%s/map.html' % (config.paths['templates']))
 
-    # TODO: make global lat long,query google api
-
     map = folium.Map(location=map_center, zoom_start=12, width='100%', height=500, tiles='Stamen Toner')
-    # map.create_map(path='%s/map.html' % (config.paths['templates']))
 
     # markers
     for ind, row in enumerate(posts.iterrows()):
@@ -109,6 +121,8 @@ def make_map(map_center, posts, cluster_labels):
 
 
     map.create_map(path='%s/map.html' % (config.paths['templates']))
+
+    return cols_hex
 
 
 def text_from_clusters(posts, cluster_labels, threshold=0.7, top_n=10):
@@ -242,92 +256,29 @@ def make_word_cloud(text, save_path):
     wc.to_file('app/%s' % save_path)
     # print 'saving wordcloud to %s' % save_path
 
+def rank_clusters(posts):
+    # rank clusters: currently only by # likes
 
-#TODO: remove text_recent??
-# def text_recent(posts, cluster_geo, recent_start_date=pd.datetime(2014,12,1), top_n=10):
-#     # top_n_words = text_recent(posts, cluster_geo, recent_start_date=pd.datetime(2014,12,1), top_n=10)
-#
-#     from nltk.tokenize import word_tokenize
-#     from gensim import corpora, matutils
-#     import string
-#     from sklearn.feature_extraction.text import TfidfTransformer
-#
-#     print 'recent_start_date = %s' % recent_start_date
-#
-#     top_n_words = [[]] * len(cluster_geo)
-#     for ind, cluster in enumerate(cluster_geo):
-#         # # Get the "recent" docs from this cluster
-#         docs_recent_raw = posts[(posts['date'] >= recent_start_date)
-#                      & (posts['lat'] >= cluster[0])
-#                      & (posts['lat'] <= cluster[1])
-#                      & (posts['long'] >= cluster[2])
-#                      & (posts['long'] <= cluster[3])]['text'].values
-#
-#         # remove nans
-#         docs_recent = []
-#         for doc in docs_recent_raw:
-#             if type(doc) == str:
-#                 docs_recent = docs_recent + [doc]
-#         # tokenize, flatten into one
-#         tokened_recent = [word_tokenize(doc) for doc in docs_recent]
-#         flat_recent = []
-#         for doc in tokened_recent:
-#             flat_recent = flat_recent + doc
-#
-#
-#         # # Get the "old" docs (each text post)
-#         docs_old_raw = posts[(posts['date'] < recent_start_date) # important = all of history in the dataset here, before "this week"
-#                      & (posts['lat'] >= cluster[0])
-#                      & (posts['lat'] <= cluster[1])
-#                      & (posts['long'] >= cluster[2])
-#                      & (posts['long'] <= cluster[3])]['text'].values
-#         # remove nans
-#         docs_old = []
-#         for doc in docs_old_raw:
-#             if type(doc) == str:
-#                 docs_old = docs_old + [doc]
-#
-#         # tokenize, flatten into one
-#         tokened_old = [word_tokenize(doc) for doc in docs_old]
-#         flat_old = []
-#         for doc in tokened_old:
-#             flat_old = flat_old + doc
-#
-#         # Combine and clean
-#         docs = [flat_old, flat_recent]
-#
-#         chars = string.punctuation + ' '
-#         temp_cleaned = [[''.join(ch for ch in word.lower() if ch not in chars) for word in doc] for doc in docs]
-#         docs_cleaned = [[word for word in doc if word != ''] for doc in temp_cleaned]
-#
-#         dictionary = corpora.dictionary.Dictionary(docs_cleaned) # indexing: dictionary.token2id['streetart']
-#         bow_corp = [dictionary.doc2bow(doc) for doc in docs_cleaned]
-#         token_freq = matutils.corpus2dense(bow_corp, len(dictionary.token2id.keys()))
-#
-#         # normalize words by occurrence
-#         transformer = TfidfTransformer()
-#
-#         tfidf = transformer.fit_transform(token_freq)
-#         norm_token_freq = tfidf.toarray()
-#
-#         words = dictionary.token2id.keys()
-#
-#         # Pick out unusual words
-#         threshold = 0.9
-#         unusual_tokens = []
-#         for word in words:
-#             if norm_token_freq[dictionary.token2id[word],1] > threshold:
-#                 if np.sum(token_freq[dictionary.token2id[word]]) > 1:
-#                     unusual_tokens = unusual_tokens + [(str(word), token_freq[dictionary.token2id[word], 1])]
-#
-#         # get top 10
-#         temp = sorted(unusual_tokens,key=lambda x: x[1], reverse=True)
-#         if len(temp) >= top_n:
-#             top_n_words[ind] = temp[:top_n]
-#         else:
-#             top_n_words[ind] = temp
-#
-#     return top_n_words
+    # rank by # likes/post (vs others)
+    temp = posts.groupby('cluster_id')['likes'].sum() / posts.groupby('cluster_id')['likes'].count()
+    likes_per_post = []
+    for row in temp.iteritems():
+        if row[0] >= 0:
+            likes_per_post.append(row)
+
+    ranked_clusters = sorted(likes_per_post, key=lambda tup: tup[1], reverse=True)
+
+    return ranked_clusters
+
+def top_photos(posts, n_photos=9):
+
+    photos = []
+    for name, group in posts.groupby('cluster_id')[['image_url', 'likes']]: # name is column grouped by, group is small df
+        if name >= 0:
+            urls_df = group.sort('likes', ascending=False)[['image_url']].head(n_photos)
+            photos.append([row[1]['image_url'] for row in urls_df.iterrows()])
+
+    return photos
 
 
 
