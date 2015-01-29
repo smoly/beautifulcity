@@ -70,18 +70,17 @@
     </div>
 
     <div class="col-md-2">
-        <table class="table table-hover">
-            <!--{% for cluster in unusual_tokens %}-->
-                <!--<tr><th>Cluster {{cluster[0]}}</th><th>Count</th><th></th></tr>-->
-                <!--{% for word in cluster[1:] %}-->
-                    <!--<tr><td>{{ word[0] }}</td><td>{{ word[1]}}</td></tr>-->
-                <!--{% endfor %}-->
-            <!--{% endfor %}-->
-        </table>
+        <!--<table class="table table-hover">-->
+        {% for cluster in ranked_clusters %}
+            <div onclick="$('.cluster-info').hide(); $('#cluster-info-{{cluster[0]}}').show()" style="background-color: {{cols_hex[cluster[0]]}}">
+                Cluster {{cluster[0]}} {{cols_hex[cluster[0]]}}
+            </div>
+        {% endfor %}
+
     </div>
 
     {% for (i, (wordle, photos)) in cluster_infos %}
-        <div class="cluster-info-{{i}} col-md-4">
+        <div id="cluster-info-{{i}}" class="cluster-info col-md-4" style="display:none">
 
             <img class="wordle col-md-12" src="{{wordle}}">
 

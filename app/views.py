@@ -46,9 +46,11 @@ def tag_home():
     import tagsf as tg
     import sqlalchemy
     import geo_util
+    import string
+    import random
 
     # Get location
-    loc_name = request.args.get('loc', 'San Francisco, CA')
+    loc_name = request.args.get('loc', 'NYC, NY')
 
     loc = geo_util.google_geo(loc_name)
     geo_box = geo_util.geo_bounds([loc['lat'], loc['lng']], distance=9)
@@ -69,37 +71,48 @@ def tag_home():
 
     # Cluster geo
     cluster_id = tg.cluster_geo(posts, eps=0.13, min_samples=10) #.14 & 1500 not good; 0.13 x 1500 not good
-    tg.make_map([loc['lat'], loc['lng']], posts, cluster_id)
+    cols_hex = tg.make_map([loc['lat'], loc['lng']], posts, cluster_id)
+
+    # Add ID
+    posts['cluster_id'] = cluster_id
 
     # Text mine
     unusual_tokens, cluster_tokens_all = tg.text_from_clusters(posts, cluster_id)
     artists_found = tg.find_artists(cluster_tokens_all)
+
+    # Rank clusters
+    ranked_clusters = tg.rank_clusters(posts)
 
     #FIXME: artist names can be doubled!
     fun_text = [[]] * len(unusual_tokens)
     for ind, tokens in enumerate(unusual_tokens):
         fun_text[ind] = tokens + artists_found[ind]
 
-    # was path = "app/static/data/test_cloud.png"
-
     wordle_urls = []
     for ind, cluster_text in enumerate(fun_text):
-        this_path = 'static/data/word_cloud_%i.png' % ind
+        random_str = ''.join(random.choice(string.letters + string.digits) for i in range(20))
+        this_path = 'static/data/word_cloud_%s.png' % random_str
         wordle_urls.append(this_path)
         tg.make_word_cloud(cluster_text, this_path)
 
 
     # # # TODO replace:
     # ind = 8
-    photo_urls = [list(posts.loc[ind*(x+1)-ind:ind*(x+1), 'image_url'].values)
-              for x in range(len(cluster_tokens_all))]
+    # photo_urls = [list(posts.loc[ind*(x+1)-ind:ind*(x+1), 'image_url'].values)
+    #           for x in range(len(cluster_tokens_all))]
 
-    cluster_infos = list(enumerate(zip(wordle_urls, photo_urls)))
+    photos = tg.top_photos(posts, n_photos=9)
 
-    return render_template('tag_home.html',
-                           unusual_tokens=artists_found,
-                           loc_name=loc['formatted_address'],
-                           cluster_infos=cluster_infos)
+    cluster_infos = list(enumerate(zip(wordle_urls, photos)))
+
+    return render_template(
+        'tag_home.html',
+        unusual_tokens=artists_found,
+        loc_name=loc['formatted_address'],
+        cluster_infos=cluster_infos,
+        ranked_clusters=ranked_clusters,
+        cols_hex=cols_hex,
+    )
 
 # @app.route('/input')
 # def cities_input():
