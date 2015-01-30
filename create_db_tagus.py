@@ -32,7 +32,19 @@ create table instagram (
 ''')
 
 # Load Instagram data
-posts_all = pd.read_csv('%s/%s' % (config.data_path, config.instagram['file_name_world']), sep='\t')
+posts_1 = pd.read_csv('%s/%s' % (config.paths['data'], config.instagram['file_name_world']), sep='\t')
+posts_2 = pd.read_csv('%s/%s' % (config.paths['data'], config.instagram['file_name_world2']), sep='\t')
+posts_all = pd.concat([posts_1, posts_2])
+
+print 'Concatenating'
+print 'orig n_rows = %i' % posts_1.shape[0]
+print 'new n_rows = %i' % posts_2.shape[0]
+print 'total = %i' % (posts_1.shape[0] + posts_2.shape[0])
+print 'combined = %i' % posts_all.shape[0]
+
+posts_all = posts_all.drop_duplicates(subset='id')
+print 'new = %i' % posts_all.shape[0]
+
 posts_all['date'] = pd.to_datetime(posts_all.created_time, unit='s')
 
 # Kludge more date info:
@@ -42,6 +54,7 @@ posts_all['date_week'] = posts_all['date'].apply(lambda x: x.isocalendar()[1])
 posts_all['date_day'] = posts_all['date'].apply(lambda x: str(x)[:10])
 
 # Put into table
+print 'data -> table'
 posts_all.to_sql('instagram', engine,
                  schema='tagus',
                  if_exists='append',
@@ -49,6 +62,7 @@ posts_all.to_sql('instagram', engine,
                  index=False)
 
 # Create indices
+print 'creating indices'
 engine.execute('create index idx_lat_lng on instagram (lat, `long`);')
 engine.execute('create index idx_likes on instagram (likes)')
 engine.execute('create index idx_date on instagram (`date`)')
