@@ -117,7 +117,7 @@ def make_map(map_center, posts, cluster_labels):
                           radius=1,
                           line_color=marker_col[ind],
                           fill_color=marker_col[ind],
-                          popup=str(cluster_labels[ind])) # str(cluster_labels[ind])
+                          popup=img) # str(cluster_labels[ind])
 
 
     map.create_map(path='%s/map.html' % (config.paths['templates']))
@@ -183,14 +183,6 @@ def text_from_clusters(posts, cluster_labels, threshold=0.7, top_n=10):
                 if np.sum(token_freq[dictionary.token2id[word]]) > 1: # check appear more than once in entire corpus
                     unusual_tokens[ind_cluster] = unusual_tokens[ind_cluster] + [(str(word), token_freq[dictionary.token2id[word], ind_cluster])]
 
-    # top_n_words = [[]] * n_clust
-    # for ind, cluster in enumerate(unusual_tokens):
-    #     temp = sorted(cluster[1:],key=lambda x: x[1], reverse=True)
-    #     if len(temp) > top_n:
-    #         top_n_words[ind] = [cluster[0]] + temp[:top_n-1]
-    #     else:
-    #         top_n_words[ind] = [cluster[0]] + temp
-
     return unusual_tokens, cluster_tokens_cleaned
 
 
@@ -251,6 +243,8 @@ def make_word_cloud(text, save_path):
     # print os.getcwd()
     wc = WordCloud(background_color="white",
                    max_words=10000,
+                   height=200,
+                   width=600,
                    font_path='app/static/fonts/NanumScript.ttc').generate(big_string)
     wc.generate(big_string)
     wc.to_file('app/%s' % save_path)
@@ -270,7 +264,7 @@ def rank_clusters(posts):
 
     return ranked_clusters
 
-def top_photos(posts, n_photos=9):
+def top_photos(posts, n_photos=8):
 
     photos = []
     for name, group in posts.groupby('cluster_id')[['image_url', 'likes']]: # name is column grouped by, group is small df

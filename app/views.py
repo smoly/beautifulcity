@@ -96,7 +96,7 @@ def tag_home():
         tg.make_word_cloud(cluster_text, this_path)
 
 
-    photos = tg.top_photos(posts, n_photos=9)
+    photos = tg.top_photos(posts, n_photos=8)
 
     cluster_infos = list(enumerate(zip(wordle_urls, photos)))
 

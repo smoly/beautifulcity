@@ -8,7 +8,7 @@
     <meta name="author" content="">
     <link rel="icon" href="../../favicon.ico">
 
-    <title>Starter Template for Bootstrap</title>
+    <title>All*City</title>
 
     <!-- Bootstrap core CSS -->
     <link href="../static/css/bootstrap.min.css" rel="stylesheet">
@@ -28,6 +28,25 @@
     <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
     <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
     <![endif]-->
+
+    <style type="text/css">
+        .cluster-listing {
+            padding: 14px;
+            margin-bottom: 5px;
+        }
+
+        img.photo {
+            margin: 0px;
+            padding: 5px;
+
+        }
+
+        .map {
+            padding: 0px;
+        }
+    </style>
+
+
 </head>
 
 <body>
@@ -41,7 +60,7 @@
                 <span class="icon-bar"></span>
                 <span class="icon-bar"></span>
             </button>
-            <a class="navbar-brand" href="#">StreetTag</a>
+            <a class="navbar-brand" href="#">AllCity</a>
         </div>
         <div class="collapse navbar-collapse">
             <ul class="nav navbar-nav">
@@ -58,34 +77,34 @@
 <div class="container">
     <form  action="/tag" method="GET">
         <h2>Find street art in
-            <input type="text" id="loc" name='loc' placeholder="{{ loc_name }}">
+            <input type="text" id="loc" name='loc' value="{{ loc_name }}">
             <!--<button type="submit" class="btn btn-default btn-lg">Find this city!</button>-->
         </h2>
     </form>
 
-    <div class="col-md-6">
+    <div class="col-md-5">
         <div class="map">
             {% include 'map.html' %} <!--to make iframe, put something like <iframe src=app/templates/map.html width=500 height=375></iframe> here -->
         </div>
     </div>
 
-    <div class="col-md-2">
+    <div class="col-md-1">
         <!--<table class="table table-hover">-->
         {% for cluster in ranked_clusters %}
-            <div onclick="$('.cluster-info').hide(); $('#cluster-info-{{cluster[0]}}').show()" style="background-color: {{cols_hex[cluster[0]]}}">
-                Cluster {{cluster[0]}} {{cols_hex[cluster[0]]}}
+            <div class='cluster-listing' onmouseover="$('.cluster-info').hide(); $('#cluster-info-{{cluster[0]}}').show()" style="background-color: {{cols_hex[cluster[0]]}}">
+
             </div>
         {% endfor %}
 
     </div>
 
     {% for (i, (wordle, photos)) in cluster_infos %}
-        <div id="cluster-info-{{i}}" class="cluster-info col-md-4" style="display:none">
+        <div id="cluster-info-{{i}}" class="cluster-info col-md-6" style="display:none">
 
             <img class="wordle col-md-12" src="{{wordle}}">
 
             {% for photo in photos %}
-                <img class="photo col-md-4" src="{{photo}}">
+                <img class="photo col-md-3" src="{{photo}}">
             {% endfor %}
         </div>
     {% endfor %}
