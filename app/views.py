@@ -1,7 +1,7 @@
 from flask import render_template, request
 from app import app
 import pymysql as mdb
-from Flask import current_app
+from a_Model import ModelIt
 
 db= mdb.connect(user="root", host="localhost", db="world_innodb", charset='utf8')
 
@@ -48,8 +48,6 @@ def tag_home():
     import geo_util
     import string
     import random
-    
-    # db = pymysql.connect(user=current_app.config['DB_USER'], passwd=current_app.config['DB_PASS'], host=current_app.config['DB_HOST'], db=current_app.config['DB_NAME’])
 
     # Get location
     loc_name = request.args.get('loc', 'NYC, NY')
@@ -81,14 +79,12 @@ def tag_home():
     # Text mine
     unusual_tokens, cluster_tokens_all = tg.text_from_clusters(posts, cluster_id)
     artists_found = tg.find_artists(cluster_tokens_all)
-
-    # Rank clusters
-    ranked_clusters = tg.rank_clusters(posts)
-
-    #FIXME: artist names can be doubled!
     fun_text = [[]] * len(unusual_tokens)
     for ind, tokens in enumerate(unusual_tokens):
-        fun_text[ind] = tokens + artists_found[ind]
+        fun_text[ind] = list(set(tokens + artists_found[ind]))
+
+    # Rank clusters
+    ranked_clusters = tg.rank_clusters(posts, artists_found)
 
     wordle_urls = []
     for ind, cluster_text in enumerate(fun_text):
