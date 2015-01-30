@@ -1,7 +1,7 @@
 from flask import render_template, request
 from app import app
 import pymysql as mdb
-from a_Model import ModelIt
+from Flask import current_app
 
 db= mdb.connect(user="root", host="localhost", db="world_innodb", charset='utf8')
 
@@ -48,6 +48,8 @@ def tag_home():
     import geo_util
     import string
     import random
+    
+    # db = pymysql.connect(user=current_app.config['DB_USER'], passwd=current_app.config['DB_PASS'], host=current_app.config['DB_HOST'], db=current_app.config['DB_NAME’])
 
     # Get location
     loc_name = request.args.get('loc', 'NYC, NY')
