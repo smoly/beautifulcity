@@ -70,33 +70,36 @@ def tag_home():
     posts = pd.read_sql_query(sql_query, engine, parse_dates=['date'])
 
     # Cluster geo
-    cluster_id = tg.cluster_geo(posts, eps=0.13, min_samples=10) #.14 & 1500 not good; 0.13 x 1500 not good
-    cols_hex = tg.make_map([loc['lat'], loc['lng']], posts, cluster_id)
+    try:
+        cluster_id = tg.cluster_geo(posts, eps=0.13, min_samples=10) #.14 & 1500 not good; 0.13 x 1500 not good
+        cols_hex = tg.make_map([loc['lat'], loc['lng']], posts, cluster_id)
 
-    # Add ID
-    posts['cluster_id'] = cluster_id
+        # Add ID
+        posts['cluster_id'] = cluster_id
 
-    # Text mine
-    unusual_tokens, cluster_tokens_all = tg.text_from_clusters(posts, cluster_id)
-    artists_found = tg.find_artists(cluster_tokens_all)
-    fun_text = [[]] * len(unusual_tokens)
-    for ind, tokens in enumerate(unusual_tokens):
-        fun_text[ind] = list(set(tokens + artists_found[ind]))
+        # Text mine
+        unusual_tokens, cluster_tokens_all = tg.text_from_clusters(posts, cluster_id)
+        artists_found = tg.find_artists(cluster_tokens_all)
+        fun_text = [[]] * len(unusual_tokens)
+        for ind, tokens in enumerate(unusual_tokens):
+            fun_text[ind] = list(set(tokens + artists_found[ind]))
 
-    # Rank clusters
-    ranked_clusters = tg.rank_clusters(posts, artists_found)
+        # Rank clusters
+        ranked_clusters = tg.rank_clusters(posts)
 
-    wordle_urls = []
-    for ind, cluster_text in enumerate(fun_text):
-        random_str = ''.join(random.choice(string.letters + string.digits) for i in range(20))
-        this_path = 'static/data/word_cloud_%s.png' % random_str
-        wordle_urls.append(this_path)
-        tg.make_word_cloud(cluster_text, this_path)
+        wordle_urls = []
+        for ind, cluster_text in enumerate(fun_text):
+            random_str = ''.join(random.choice(string.letters + string.digits) for i in range(20))
+            this_path = 'static/data/word_cloud_%s.png' % random_str
+            wordle_urls.append(this_path)
+            tg.make_word_cloud(cluster_text, this_path, cols_hex[ind])
 
 
-    photos = tg.top_photos(posts, n_photos=8)
+        photos = tg.top_photos(posts, n_photos=8)
 
-    cluster_infos = list(enumerate(zip(wordle_urls, photos)))
+        cluster_infos = list(enumerate(zip(wordle_urls, photos)))
+    except ValueError:
+        pass
 
     return render_template(
         'tag_home.html',

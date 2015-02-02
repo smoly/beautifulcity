@@ -38,12 +38,24 @@
         img.photo {
             margin: 0px;
             padding: 5px;
-
         }
 
         .map {
             padding: 0px;
         }
+
+        h3, .h3 {
+            margin-top: 10px;
+            margin-bottom: 10px;
+        }
+
+        {% for (i, (wordle, photos)) in cluster_infos %}
+            #cluster-info-{{i}} {
+                background-color: {{cols_hex[i]}};
+            }
+        {% endfor %}
+
+
     </style>
 
 
@@ -51,35 +63,34 @@
 
 <body>
 
-<div class="navbar navbar-inverse navbar-fixed-top" role="navigation">
-    <div class="container">
-        <div class="navbar-header">
-            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
-                <span class="sr-only">Toggle navigation</span>
-                <span class="icon-bar"></span>
-                <span class="icon-bar"></span>
-                <span class="icon-bar"></span>
-            </button>
-            <a class="navbar-brand" href="#">AllCity</a>
-        </div>
-        <div class="collapse navbar-collapse">
-            <ul class="nav navbar-nav">
-                <li class="active"><a href="#">Home</a></li>
-                <li><a href="#about">About</a></li>
-                <li><a href="#contact">Contact</a></li>
-            </ul>
-        </div><!--/.nav-collapse -->
-    </div>
-</div>
+<!--<div class="navbar navbar-inverse navbar-fixed-top" role="navigation">-->
+    <!--<div class="container">-->
+        <!--<div class="navbar-header">-->
+            <!--<button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">-->
+                <!--<span class="sr-only">Toggle navigation</span>-->
+                <!--<span class="icon-bar"></span>-->
+                <!--<span class="icon-bar"></span>-->
+                <!--<span class="icon-bar"></span>-->
+            <!--</button>-->
+            <!--<a class="navbar-brand" href="#">AllCity</a>-->
+        <!--</div>-->
+        <!--<div class="collapse navbar-collapse">-->
+            <!--<ul class="nav navbar-nav">-->
+                <!--<li class="active"><a href="#">Home</a></li>-->
+                <!--<li><a href="#about">About</a></li>-->
+                <!--<li><a href="#contact">Contact</a></li>-->
+            <!--</ul>-->
+        <!--</div>&lt;!&ndash;/.nav-collapse &ndash;&gt;-->
+    <!--</div>-->
+<!--</div>-->
 
-<br><br>
 
 <div class="container">
     <form  action="/tag" method="GET">
-        <h2>Find street art in
+        <h1>Find street art in
             <input type="text" id="loc" name='loc' value="{{ loc_name }}">
             <!--<button type="submit" class="btn btn-default btn-lg">Find this city!</button>-->
-        </h2>
+        </h1>
     </form>
 
     <div class="col-md-5">
@@ -90,6 +101,7 @@
 
     <div class="col-md-1">
         <!--<table class="table table-hover">-->
+        <h3 style="text-align:center; color:#FF6262">HOT </h3>
         {% for cluster in ranked_clusters %}
             <div class='cluster-listing' onmouseover="$('.cluster-info').hide(); $('#cluster-info-{{cluster[0]}}').show()" style="background-color: {{cols_hex[cluster[0]]}}">
 

@@ -108,13 +108,13 @@ def make_map(map_center, posts, cluster_labels):
         img = '<a><img src='+row[1]['image_url']+' height="150px" width="200px"></a>'
         if cluster_labels[ind] == -1:
             map.circle_marker([row[1]['lat'], row[1]['long']],
-                          radius=1,
+                          radius=5,
                           line_color='#000000',
                           fill_color='#000000',
                           popup=img)
         else:
             map.circle_marker([row[1]['lat'], row[1]['long']],
-                          radius=1,
+                          radius=5,
                           line_color=marker_col[ind],
                           fill_color=marker_col[ind],
                           popup=img) # str(cluster_labels[ind])
@@ -227,10 +227,13 @@ def cluster_geo_box(posts, cluster_labels):
     return cluster_geo
 
 
-def make_word_cloud(text, save_path):
+def make_word_cloud(text, save_path, background_color='black'):
     # text expected to a string or a list of [(word, count), ...]
     from wordcloud import WordCloud
     import os
+
+    def col_fun(a,b,c,d,random_state):
+        return '#333'
 
     if type(text) == str:
         big_string = text
@@ -241,10 +244,11 @@ def make_word_cloud(text, save_path):
 
     # print 'trying to make cloud: %s' % save_path
     # print os.getcwd()
-    wc = WordCloud(background_color="white",
+    wc = WordCloud(background_color=background_color,
+                   color_func=col_fun,
                    max_words=10000,
                    height=200,
-                   width=600,
+                   width=700,
                    font_path='app/static/fonts/NanumScript.ttc').generate(big_string)
     wc.generate(big_string)
     wc.to_file('app/%s' % save_path)
@@ -273,60 +277,3 @@ def top_photos(posts, n_photos=8):
             photos.append([row[1]['image_url'] for row in urls_df.iterrows()])
 
     return photos
-
-
-
-# def load_data(reload):
-#     # load SF graffiti reports, flickr #street art reports, Trulia home prices
-#     if reload:
-#         now = datetime.now().isoformat().replace(':', '_') # mac doesn't allow ':' in filenames
-#
-#         ## Load SF city data
-#         reports = pd.read_csv(
-#             '%s/Case_Data_from_San_Francisco_311__SF311_.csv' % config.data_path)
-#
-#         reports = reports[reports['CaseID'].notnull()]
-#         graffiti = reports[reports['Request Type'] == 'Graffiti'] #9440 results, most recent is Jan 9
-#         graffiti['Opened'] = pd.to_datetime(graffiti['Opened'])
-#         graffiti['Closed'] = pd.to_datetime(graffiti['Closed'])
-#         graffiti['Updated'] = pd.to_datetime(graffiti['Updated'])
-#
-#         # get neighborhood name from flickr api, to be the same as flickr names
-#         graffiti['neighborhood'] = graffiti['Point'].apply(get_neighborhood)
-#
-#         # convert "point" to lat long
-#         graffiti['latitude'] = graffiti['Point'].apply(get_lat)
-#         graffiti['longitude'] = graffiti['Point'].apply(get_lng)
-#
-#         # TO DELETE:
-#         # DF = DF.drop('column_name', 1)
-#
-#         # save - this one is important!
-#         graffiti.to_pickle('%sdf_graffiti-%s' % (config.data_path, now))
-#
-#         ## Flickr data
-#         # file_name_csv = 'flickr_data-%s-neighborhood.csv' % config.flickr['file_time'] # has neighborhood
-#         file_name_csv = 'flickr_data-2015-01-16T19_24_33.067445-neighborhood.csv'
-#         flickr = pd.read_csv('%s%s' % (config.data_path, file_name_csv))
-#
-#         # Convert to datetime
-#         flickr['datetaken'] = pd.to_datetime(flickr['datetaken'])
-#
-#         flickr.to_pickle('%sdf_flickr-%s' % (config.data_path, now))
-#
-#         ## Trulia data
-#         prices = pd.read_csv('%shome_prices.csv' % config.data_path)
-#
-#         # save
-#         prices.to_pickle('%sdf_prices-%s' % (config.data_path, now))
-#     else: # load processed
-#         print 'Loading...'
-#
-#         timestamp = '2015-01-19T15_13_52.276380'
-#
-#         graffiti = pd.read_pickle('%sdf_graffiti-%s' % (config.data_path, timestamp))
-#         flickr = pd.read_pickle('%sdf_flickr-%s' % (config.data_path, timestamp))
-#         prices = pd.read_pickle('%sdf_prices-%s' % (config.data_path, timestamp))
-#
-#     return graffiti, flickr, prices
-#
