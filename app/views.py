@@ -9,8 +9,7 @@ db= mdb.connect(user="root", host="localhost", db="world_innodb", charset='utf8'
 @app.route('/')
 @app.route('/index')
 def index():
-    # return "Hello, World!"
-    # user = { 'nickname': 'Miguel' } # fake user
+    # FIXME: go to tag
     return render_template("index.html",
        title = 'Home', user = {'nickname': 'Miguel' },
        )
@@ -48,12 +47,17 @@ def tag_home():
     import geo_util
     import string
     import random
+    import numpy as np
+    import os
+    import pickle
 
     # Get location
     loc_name = request.args.get('loc', 'NYC, NY')
 
     loc = geo_util.google_geo(loc_name)
     geo_box = geo_util.geo_bounds([loc['lat'], loc['lng']], distance=9)
+
+    print 'loc name: %s' % loc['formatted_address']
 
     # query data
     engine = sqlalchemy.create_engine('mysql://root@localhost') # connect to server
@@ -69,37 +73,61 @@ def tag_home():
 
     posts = pd.read_sql_query(sql_query, engine, parse_dates=['date'])
 
-    # Cluster geo
-    try:
-        cluster_id = tg.cluster_geo(posts, eps=0.13, min_samples=10) #.14 & 1500 not good; 0.13 x 1500 not good
+    filename = 'app/static/data/%s' % str(loc['formatted_address'].replace(',', '').replace(' ', ''))
+    if os.path.exists(filename):
+        print 'file exists!'
+
+        with open(filename, "rb") as f:
+            data = pickle.load(f)
+
+        [cluster_id, artists_found, cluster_infos, ranked_clusters, cols_hex] = data
+
+        # make map
         cols_hex = tg.make_map([loc['lat'], loc['lng']], posts, cluster_id)
+    else:
+        try:
+            cluster_id = tg.cluster_geo(posts, eps=0.13, min_samples=10) #.14 & 1500 not good; 0.13 x 1500 not good
+            cols_hex = tg.make_map([loc['lat'], loc['lng']], posts, cluster_id)
 
-        # Add ID
-        posts['cluster_id'] = cluster_id
+            # Add ID
+            posts['cluster_id'] = cluster_id
 
-        # Text mine
-        unusual_tokens, cluster_tokens_all = tg.text_from_clusters(posts, cluster_id)
-        artists_found = tg.find_artists(cluster_tokens_all)
-        fun_text = [[]] * len(unusual_tokens)
-        for ind, tokens in enumerate(unusual_tokens):
-            fun_text[ind] = list(set(tokens + artists_found[ind]))
+            # Text mine
+            unusual_tokens, cluster_tokens_all = tg.text_from_clusters(posts, cluster_id)
+            artists_found = tg.find_artists(cluster_tokens_all)
+            fun_text = [[]] * len(unusual_tokens)
+            for ind, tokens in enumerate(unusual_tokens):
+                fun_text[ind] = list(set(tokens + artists_found[ind]))
 
-        # Rank clusters
-        ranked_clusters = tg.rank_clusters(posts)
+            # Rank clusters
+            ranked_clusters = tg.rank_clusters(posts)
 
-        wordle_urls = []
-        for ind, cluster_text in enumerate(fun_text):
-            random_str = ''.join(random.choice(string.letters + string.digits) for i in range(20))
-            this_path = 'static/data/word_cloud_%s.png' % random_str
-            wordle_urls.append(this_path)
-            tg.make_word_cloud(cluster_text, this_path, cols_hex[ind])
+            # make worldle
+            wordle_urls = []
+            for ind, cluster_text in enumerate(fun_text):
+                random_str = ''.join(random.choice(string.letters + string.digits) for i in range(20))
+                this_path = 'static/data/word_cloud_%s.png' % random_str
+                wordle_urls.append(this_path)
+                tg.make_word_cloud(cluster_text, this_path, cols_hex[ind])
 
+            # get top photos
+            photos = tg.top_photos(posts, n_photos=8)
 
-        photos = tg.top_photos(posts, n_photos=8)
+            cluster_infos = list(enumerate(zip(wordle_urls, photos)))
 
-        cluster_infos = list(enumerate(zip(wordle_urls, photos)))
-    except ValueError:
-        pass
+        except ValueError:
+            # make map:
+            cols_hex = tg.make_map([loc['lat'], loc['lng']], posts,  np.array([-1] * posts.shape[0]))
+
+            artists_found = [[]]
+            cluster_infos = []
+            ranked_clusters = []
+
+        data = [cluster_id, artists_found, cluster_infos, ranked_clusters, cols_hex]
+        print 'does not exist, save'
+        with open(filename, "wb") as f:
+            pickle.dump(data, f)
+
 
     return render_template(
         'tag_home.html',
