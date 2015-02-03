@@ -83,7 +83,7 @@ def make_map(map_center, posts, cluster_labels):
     '''
 
     import colorsys
-    from colors import rgb
+    # from colors import rgb
     import os
     import folium
     import seaborn as sns
