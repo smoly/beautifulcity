@@ -60,7 +60,7 @@ def tag_home():
                 = pickle.load(f)
     else:
         try:
-            cluster_id = tg.cluster_geo(posts, eps=0.13, min_samples=10) #.14 & 1500 not good; 0.13 x 1500 not good
+            cluster_id = tg.cluster_geo(posts, eps=0.13, min_samples=8) #.14 & 1500 not good; 0.13 x 1500 not good
 
             # Make map
             random_str = ''.join(random.choice(string.letters + string.digits) for i in range(20))
