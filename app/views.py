@@ -48,6 +48,7 @@ def tag_home():
                 limit 1000''' % (geo_box[0], geo_box[1],  geo_box[2],  geo_box[3])
 
     posts = pd.read_sql_query(sql_query, engine, parse_dates=['date'])
+    n_points = posts.shape[0]
 
     # If location has cached data, use it
     filename = 'app/static/data/%s' % str(loc['formatted_address'].replace(',', '').replace(' ', ''))
@@ -57,9 +58,6 @@ def tag_home():
         with open(filename, "rb") as f:
             [cluster_id, artists_found, cluster_infos, ranked_clusters, cols_hex, map_name] \
                 = pickle.load(f)
-
-        # # make map
-        # cols_hex = tg.make_map([loc['lat'], loc['lng']], posts, cluster_id)
     else:
         try:
             cluster_id = tg.cluster_geo(posts, eps=0.13, min_samples=10) #.14 & 1500 not good; 0.13 x 1500 not good
