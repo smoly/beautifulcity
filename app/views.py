@@ -10,13 +10,13 @@ import random
 import numpy as np
 import os
 import pickle
+import unidecode
 
 
 @app.route('/hello')
 def index():
-    # FIXME: go to tag
     return render_template("index.html",
-       title = 'Home', user = {'nickname': 'Miguel' },
+       title = 'Home', user = {'nickname': 'Alex' },
        )
 
 @app.route('/error')
@@ -27,11 +27,12 @@ def oops():
 def tag_home():
 
     # Get location
-    loc_name = request.args.get('loc', 'NYC, NY')
+    loc_name = request.args.get('loc', 'SF, CA')
 
     loc = geo_util.google_geo(loc_name)
     geo_box = geo_util.geo_bounds([loc['lat'], loc['lng']], distance=9)
 
+    loc['formatted_address'] = unidecode.unidecode(loc['formatted_address'])
     print 'loc name: %s' % loc['formatted_address']
 
     # query data
@@ -48,26 +49,30 @@ def tag_home():
 
     posts = pd.read_sql_query(sql_query, engine, parse_dates=['date'])
 
+    # If location has cached data, use it
     filename = 'app/static/data/%s' % str(loc['formatted_address'].replace(',', '').replace(' ', ''))
     if os.path.exists(filename):
         print 'file exists!'
 
         with open(filename, "rb") as f:
-            data = pickle.load(f)
+            [cluster_id, artists_found, cluster_infos, ranked_clusters, cols_hex, map_name] \
+                = pickle.load(f)
 
-        [cluster_id, artists_found, cluster_infos, ranked_clusters, cols_hex] = data
-
-        # make map
-        cols_hex = tg.make_map([loc['lat'], loc['lng']], posts, cluster_id)
+        # # make map
+        # cols_hex = tg.make_map([loc['lat'], loc['lng']], posts, cluster_id)
     else:
         try:
             cluster_id = tg.cluster_geo(posts, eps=0.13, min_samples=10) #.14 & 1500 not good; 0.13 x 1500 not good
-            cols_hex = tg.make_map([loc['lat'], loc['lng']], posts, cluster_id)
 
-            # Add ID
+            # Make map
+            random_str = ''.join(random.choice(string.letters + string.digits) for i in range(20))
+            map_name = 'map_%s.html' % random_str
+            cols_hex = tg.make_map([loc['lat'], loc['lng']], posts, cluster_id, map_name=map_name)
+
+            # Add ID to posts dataframe
             posts['cluster_id'] = cluster_id
 
-            # Text mine
+            # Mine text
             unusual_tokens, cluster_tokens_all = tg.text_from_clusters(posts, cluster_id)
             artists_found = tg.find_artists(cluster_tokens_all)
             fun_text = [[]] * len(unusual_tokens)
@@ -77,7 +82,7 @@ def tag_home():
             # Rank clusters
             ranked_clusters = tg.rank_clusters(posts)
 
-            # make worldle
+            # Make world cloud
             wordle_urls = []
             for ind, cluster_text in enumerate(fun_text):
                 random_str = ''.join(random.choice(string.letters + string.digits) for i in range(20))
@@ -85,20 +90,25 @@ def tag_home():
                 wordle_urls.append(this_path)
                 tg.make_word_cloud(cluster_text, this_path, cols_hex[ind])
 
-            # get top photos
+            # Get top photos
             photos = tg.top_photos(posts, n_photos=8)
 
             cluster_infos = list(enumerate(zip(wordle_urls, photos)))
 
         except ValueError:
+            print 'Value error'
             # make map:
-            cols_hex = tg.make_map([loc['lat'], loc['lng']], posts,  np.array([-1] * posts.shape[0]))
+
+            cluster_id = np.array([-1] * posts.shape[0])
+            random_str = ''.join(random.choice(string.letters + string.digits) for i in range(20))
+            map_name = 'map_%s.html' % random_str
+            cols_hex = tg.make_map([loc['lat'], loc['lng']], posts, cluster_id, map_name=map_name)
 
             artists_found = [[]]
             cluster_infos = []
             ranked_clusters = []
 
-        data = [cluster_id, artists_found, cluster_infos, ranked_clusters, cols_hex]
+        data = [cluster_id, artists_found, cluster_infos, ranked_clusters, cols_hex, map_name]
         print 'does not exist, save'
         with open(filename, "wb") as f:
             pickle.dump(data, f)
@@ -111,4 +121,5 @@ def tag_home():
         cluster_infos=cluster_infos,
         ranked_clusters=ranked_clusters,
         cols_hex=cols_hex,
+        map_name=map_name,
     )

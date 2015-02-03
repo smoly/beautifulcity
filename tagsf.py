@@ -71,7 +71,7 @@ def cluster_geo(posts,
     return cluster_labels
 
 
-def make_map(map_center, posts, cluster_labels):
+def make_map(map_center, posts, cluster_labels, map_name='map'):
     '''cols_hex = make_map(map_center, posts, cluster_labels)
 
     :param map_center:
@@ -82,24 +82,17 @@ def make_map(map_center, posts, cluster_labels):
             NB last one is not used (but is neccessary) so this list is n_clus+1
     '''
 
-    import colorsys
-    # from colors import rgb
     import os
     import folium
-    import seaborn as sns
-
-    # cols = sns.color_palette("hls", n_colors=max(cluster_labels)+1) # last one not used (kludgily reserved to work with -1 labels)
-    # marker_col = ['#%s' % str(rgb(cols[ic][0]*255, cols[ic][1]*255, cols[ic][2]*255).hex) for ic in cluster_labels]
-    # cols_hex = ['#%s' % str(rgb(col[0]*255, col[1]*255, col[2]*255).hex) for col in cols]
 
     # From color brewer
     cols_hex = '#a6cee3,#1f78b4,#b2df8a,#33a02c,#fb9a99,#e31a1c,#fdbf6f,#ff7f00,#cab2d6,#6a3d9a,#ffff99,#b15928,#8dd3c7,#ffffb3,#bebada,#fb8072,#80b1d3,#fdb462,#b3de69,#fccde5,#d9d9d9,#bc80bd,#ccebc5,#ffed6f'.split(',') * 24
     marker_col = [cols_hex[ic] for ic in cluster_labels]
 
     # Check if map file already exists
-    if os.path.exists('%s/map.html' % (config.paths['templates'])):
+    if os.path.exists('%s/%s.html' % (config.paths['templates'], map_name)):
         # print 'removing file'
-        os.remove('%s/map.html' % (config.paths['templates']))
+        os.remove('%s/%s.html' % (config.paths['templates'], map_name))
 
     map = folium.Map(location=map_center, zoom_start=12, width='100%', height=500, tiles='Stamen Toner')
 
@@ -108,19 +101,19 @@ def make_map(map_center, posts, cluster_labels):
         img = '<a><img src='+row[1]['image_url']+' height="150px" width="200px"></a>'
         if cluster_labels[ind] == -1:
             map.circle_marker([row[1]['lat'], row[1]['long']],
-                          radius=5,
-                          line_color='#000000',
-                          fill_color='#000000',
-                          popup=img)
+                              radius=8,
+                              line_color='#000000',
+                              fill_color='#000000',
+                              popup=img)
         else:
             map.circle_marker([row[1]['lat'], row[1]['long']],
-                          radius=5,
-                          line_color=marker_col[ind],
-                          fill_color=marker_col[ind],
-                          popup=img) # str(cluster_labels[ind])
+                              radius=8,
+                              line_color=marker_col[ind],
+                              fill_color=marker_col[ind],
+                              popup=img) # str(cluster_labels[ind])
 
 
-    map.create_map(path='%s/map.html' % (config.paths['templates']))
+    map.create_map(path='%s/%s' % (config.paths['templates'], map_name))
 
     return cols_hex
 
