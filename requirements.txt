@@ -1,4 +1,7 @@
 # To run:
+# sudo apt-get update
+# sudo apt-get install python-dev python-pip
+# sudo apt-get install python-scipy python-numpy
 # sudo pip install --upgrade -r requirements.txt
 
 # web stuff
@@ -11,22 +14,23 @@ flickrapi==2.0 # failed
 # Database
 SQLAlchemy==0.9.8
 MySQL-python==1.2.5
-mysql-connector-python==2.0.2
 
 # Maths
-pandas==0.15.2 # failed
-matplotlib==1.3.1 # failed
-scikit-learn==0.15.2
+scipy==0.13.3 # this is the exact version provided after an apt-get
+pandas==0.15.2 # failed # use sudo apt-get install python-pandas
+matplotlib==1.3.1 # failed # use sudo apt-get install python-matplotlib
+scikit-learn==0.15.2 # use sudo apt-get install python-sklearn
 
 # NL
 gensim==0.10.3
 nltk==3.0.1
 
 # Util
+ipython
 isodate==0.5.1
 python-dateutil==2.4.0
 requests==2.5.1
 geopy==1.3.0
-wordcloud==1.0.0
+#wordcloud==1.0.0 - install manually
 seaborn==0.5.0
 Unidecode==0.04.17
