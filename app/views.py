@@ -19,6 +19,10 @@ def index():
        title = 'Home', user = {'nickname': 'Miguel' },
        )
 
+@app.route('/error')
+def oops():
+    raise Exception("oops")
+
 @app.route('/')
 def tag_home():
 
