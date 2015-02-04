@@ -13,11 +13,11 @@ import pickle
 import unidecode
 
 
-@app.route('/hello')
+@app.route('/slides')
 def index():
-    return render_template("index.html",
-       title = 'Home', user = {'nickname': 'Alex' },
-       )
+    return render_template("slides.html")
+       # title = 'Home', user = {'nickname': 'Alex' },
+       # )
 
 @app.route('/error')
 def oops():
