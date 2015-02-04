@@ -14,10 +14,15 @@ import unidecode
 
 
 @app.route('/slides')
-def index():
+def slides():
     return render_template("slides.html")
-       # title = 'Home', user = {'nickname': 'Alex' },
-       # )
+
+
+@app.route('/hello')
+def index():
+    return render_template("index.html",
+       title = 'Home', user = {'nickname': 'Alex' },
+       )
 
 @app.route('/error')
 def oops():
@@ -121,3 +126,6 @@ def tag_home():
         cols_hex=cols_hex,
         map_name=map_name,
     )
+
+if '__name__' == '__main__':
+    app.run()
