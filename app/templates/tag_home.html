@@ -3,6 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <link href='http://fonts.googleapis.com/css?family=Lato:100,300,400,700' rel='stylesheet' type='text/css'>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="">
     <meta name="author" content="">
@@ -66,7 +67,8 @@
 
 <div class="container">
     <form  action="?" method="GET">
-        <h1>Find street art in
+        <h1 style="font-family: 'Century Gothic'">
+            Find street art in
             <input type="text" id="loc" name='loc' value="{{ loc_name }}">
             <!--<button type="submit" class="btn btn-default btn-lg">Find this city!</button>-->
         </h1>
@@ -114,10 +116,10 @@
         {% endif %}
     {% endfor %}
 
-    <div class="info" align="right">
+    <div style="font-family: 'Century Gothic'" class="info" align="right">
         <p style="padding-top: 500px">
-            <a href="http://www.beautifulcity.me/slides">How does it work?</a>
-
+            <a href="about">about</a>
+            <!--<a href="slides">info slides</a>-->
         </p>
     </div>
 

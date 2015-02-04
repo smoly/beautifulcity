@@ -13,9 +13,13 @@ import pickle
 import unidecode
 
 
-@app.route('/slides')
-def slides():
-    return render_template("slides.html")
+# @app.route('/slides')
+# def slides():
+#     return render_template("slides.html")
+
+@app.route('/about')
+def about():
+    return render_template("about.html")
 
 
 @app.route('/hello')
