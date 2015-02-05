@@ -7,13 +7,6 @@ from geopy.distance import vincenty
 def cluster_geo(posts,
                 method='dbscan', eps=0.15, min_samples=10,
                 max_cluster_size=float('inf')):
-    # cluster_labels = cluster_geo(posts, method='dbscan', eps=0.002, min_samples=5)
-    #
-    #   posts: dataframe, needs columns ['lat', 'long']
-    #   methods: 'kmeans', 'dbscan'
-    #       if 'dbscan', params:
-    #           eps
-    #           min_samples
 
 
     print 'Clustering %i points: ' % posts.shape[0]
@@ -98,7 +91,7 @@ def make_map(map_center, posts, cluster_labels, map_name='map'):
 
     # markers
     for ind, row in enumerate(posts.iterrows()):
-        img = '<a><img src='+row[1]['image_url']+' height="150px" width="200px"></a>'
+        img = '<a><img src='+row[1]['image_url']+' height="225px" width="300px"></a>'
         if cluster_labels[ind] == -1:
             map.circle_marker([row[1]['lat'], row[1]['long']],
                               radius=8,
