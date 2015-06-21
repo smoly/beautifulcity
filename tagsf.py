@@ -244,7 +244,9 @@ def rank_clusters(posts):
     # rank clusters: currently only by # likes
 
     # rank by # likes/post (vs others)
-    temp = posts.groupby('cluster_id')['likes'].sum() / posts.groupby('cluster_id')['likes'].count()
+    temp = posts.groupby('cluster_id')['likes'].mean()
+    # temp = posts.groupby('cluster_id')['likes'].median()
+    # temp = posts.groupby('cluster_id')['likes'].sum() / posts.groupby('cluster_id')['likes'].count()
     likes_per_post = []
     for row in temp.iteritems():
         if row[0] >= 0:
