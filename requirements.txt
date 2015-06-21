@@ -1,8 +1,11 @@
-# To run:
+# To run on ubuntu machine:
 # sudo apt-get update
 # sudo apt-get install python-dev python-pip
 # sudo apt-get install python-scipy python-numpy
 # sudo pip install --upgrade -r requirements.txt
+
+# To run on linux machine:
+# pip install --upgrade -r requirements.txt
 
 # web stuff
 Flask==0.10.1

@@ -23,6 +23,7 @@ def read_write(result):
                         'likes': post['likes']['count']
                     }
 
+                    print datetime.fromtimestamp(int(post['created_time'])).isoformat()
                     # add text if available
                     if 'caption' in post.keys() and post['caption'] is not None:
                         if 'text' in post['caption'].keys():
@@ -45,12 +46,13 @@ def read_write(result):
     return entries
 
 # first query
-insta_start_date = '2014-06-01T00'
-max_tag_id = isodate.parse_datetime(insta_start_date).strftime('%s%f')
+# insta_start_date = '2014-06-01T00' #FIXME to last 24 hours 
+# max_tag_id = isodate.parse_datetime(insta_start_date).strftime('%s%f')
 
 start_time = time.time()
 
-query_url = 'https://api.instagram.com/v1/tags/streetart/media/recent?access_token=%s&max_tag_id=%s' % (config.instagram['access_token'], max_tag_id)
+# query_url = 'https://api.instagram.com/v1/tags/streetart/media/recent?access_token=%s&max_tag_id=%s' % (config.instagram['access_token'], max_tag_id)
+query_url = 'https://api.instagram.com/v1/tags/streetart/media/recent?access_token=%s' % (config.instagram['access_token'])
 
 # open file
 n_entries_SF = 0
@@ -58,12 +60,13 @@ n_entries_all = 0
 
 fieldnames = sorted(['id', 'likes', 'text', 'created_time', 'image_url', 'lat', 'long', 'user_id', 'post_url'])
 now = datetime.now().isoformat().replace(':', '_') # mac doesn't allow ':' in filenames
-with open('/Users/Alexandra/Dropbox/Projects/Insight/tagsf/data/instagram_data_with_text_world-%s.tsv' % now, 'w') as output_file:
+with open('data/instagram_data_%s.tsv' % now, 'w') as output_file:
     writer = csv.DictWriter(output_file, fieldnames=fieldnames, delimiter='\t')
     writer.writeheader()
 
     # first query
     start = time.time()
+    print query_url
     resp = requests.get(query_url)
 
     new_entries = read_write(resp.json())
