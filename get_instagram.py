@@ -1,13 +1,13 @@
 import requests
 import csv
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 import traceback
 import config
 import isodate
 
 # write list of posts to csv file, used below
-def read_write(result):
+def read_write(result, writer):
     entries = [0, 0]
     for post in result['data']:
         try:
@@ -23,7 +23,7 @@ def read_write(result):
                         'likes': post['likes']['count']
                     }
 
-                    print datetime.fromtimestamp(int(post['created_time'])).isoformat()
+                    # print datetime.fromtimestamp(int(post['created_time'])).isoformat()
                     # add text if available
                     if 'caption' in post.keys() and post['caption'] is not None:
                         if 'text' in post['caption'].keys():
@@ -45,57 +45,68 @@ def read_write(result):
 
     return entries
 
-# first query
-# insta_start_date = '2014-06-01T00' #FIXME to last 24 hours 
-# max_tag_id = isodate.parse_datetime(insta_start_date).strftime('%s%f')
+def get_instagram(hours=26):
+    '''
+        get_instagram(hours=26) gets instagram data from the last 26 hours
 
-start_time = time.time()
+        can import get_instagram from other modules
 
-# query_url = 'https://api.instagram.com/v1/tags/streetart/media/recent?access_token=%s&max_tag_id=%s' % (config.instagram['access_token'], max_tag_id)
-query_url = 'https://api.instagram.com/v1/tags/streetart/media/recent?access_token=%s' % (config.instagram['access_token'])
+    '''
+    start_time = time.time()
+    max_history = datetime.now() - timedelta(hours=hours) # how far back in time to collect data
 
-# open file
-n_entries_SF = 0
-n_entries_all = 0
+    # query_url = 'https://api.instagram.com/v1/tags/streetart/media/recent?access_token=%s&max_tag_id=%s' % (config.instagram['access_token'], max_tag_id)
+    query_url = 'https://api.instagram.com/v1/tags/streetart/media/recent?access_token=%s' % (config.instagram['access_token'])
 
-fieldnames = sorted(['id', 'likes', 'text', 'created_time', 'image_url', 'lat', 'long', 'user_id', 'post_url'])
-now = datetime.now().isoformat().replace(':', '_') # mac doesn't allow ':' in filenames
-with open('data/instagram_data_%s.tsv' % now, 'w') as output_file:
-    writer = csv.DictWriter(output_file, fieldnames=fieldnames, delimiter='\t')
-    writer.writeheader()
+    # open file
+    n_entries_SF = 0
+    n_entries_all = 0
 
-    # first query
-    start = time.time()
-    print query_url
-    resp = requests.get(query_url)
+    fieldnames = sorted(['id', 'likes', 'text', 'created_time', 'image_url', 'lat', 'long', 'user_id', 'post_url'])
+    timestamp = datetime.now().isoformat().replace(':', '_') # mac doesn't allow ':' in filenames
+    with open('data/instagram_data_%s.tsv' % timestamp, 'w') as output_file:
+        writer = csv.DictWriter(output_file, fieldnames=fieldnames, delimiter='\t')
+        writer.writeheader()
 
-    new_entries = read_write(resp.json())
-    n_entries_SF += new_entries[0]
-    n_entries_all += new_entries[1]
+        # first query
+        start = time.time()
+        resp = requests.get(query_url)
 
-    next_url = resp.json()['pagination']['next_url']
-    while True: # get data forever!
-        try:
-            # throttle to 3600/hour
-            end = time.time()
-            if (end-start) < 1:
-                time.sleep(end-start)
+        new_entries = read_write(resp.json(), writer)
+        n_entries_SF += new_entries[0]
+        n_entries_all += new_entries[1]
 
-            start = time.time()
-            resp = requests.get(next_url)
-            if resp.status_code != 200:
-                if resp.status_code == 500:
-                    print resp.text
-                # else:
-                    raise Exception(resp.status_code, resp.url, resp.text)
-            else:
-                new_entries = read_write(resp.json())
-                n_entries_SF += new_entries[0]
-                n_entries_all += new_entries[1]
+        earliest_post = datetime.fromtimestamp(int(resp.json()['data'][len(resp.json()['data'])-1]['created_time']))
 
-                print 'progress: %i in SF, %i elsewhere, time elapsed = %3.fs' % (n_entries_SF, n_entries_all, time.time() - start_time)
+        next_url = resp.json()['pagination']['next_url']
+        # while True: # get data forever!
+        while earliest_post > max_history:
+            try:
+                # throttle to 3600/hour
+                end = time.time()
+                if (end-start) < 1:
+                    time.sleep(end-start)
 
-                next_url = resp.json()['pagination']['next_url']
-        except Exception, e:
-            print 'caught error in body, continuing: %s' % e
-            traceback.print_exc()
+                start = time.time()
+                resp = requests.get(next_url)
+                if resp.status_code != 200:
+                    if resp.status_code == 500:
+                        print resp.text
+                    # else:
+                        raise Exception(resp.status_code, resp.url, resp.text)
+                else:
+                    new_entries = read_write(resp.json(), writer)
+                    n_entries_SF += new_entries[0]
+                    n_entries_all += new_entries[1]
+
+                    earliest_post = datetime.fromtimestamp(int(resp.json()['data'][len(resp.json()['data'])-1]['created_time']))
+
+                    print 'progress: %i in SF, %i elsewhere, time elapsed = %3.fs' % (n_entries_SF, n_entries_all, time.time() - start_time)
+                    print 'earliest post: ' + str(earliest_post)
+                    next_url = resp.json()['pagination']['next_url']
+            except Exception, e:
+                print 'caught error in body, continuing: %s' % e
+                traceback.print_exc()
+
+if __name__ == "__main__":
+    get_instagram()
