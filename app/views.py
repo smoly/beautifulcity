@@ -48,13 +48,14 @@ def tag_home():
     engine = sqlalchemy.create_engine('mysql://%(user)s:%(pass)s@%(host)s' % config.database) # connect to server
     engine.execute('use %s' % config.database['name']) # select new db
 
+    recent_data = (datetime.now() - timedelta(weeks=2)).strftime("%Y-%m-%d")
     sql_query = '''select date, lat, `long`, image_url, likes, text
                 from instagram
-                where `date` > '2015-01-10'
+                where `date` > '%s'
                 and lat between %s and %s
                 and `long` between %s and %s
                 order by `date` desc
-                limit 1000''' % (geo_box[0], geo_box[1],  geo_box[2],  geo_box[3])
+                limit 1000''' % (recent_data, geo_box[0], geo_box[1],  geo_box[2],  geo_box[3])
 
     posts = pd.read_sql_query(sql_query, engine, parse_dates=['date'])
     n_points = posts.shape[0]
