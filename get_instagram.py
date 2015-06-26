@@ -5,6 +5,8 @@ from datetime import datetime, timedelta
 import traceback
 import config
 import isodate
+import sqlalchemy
+import pandas as pd
 
 # write list of posts to csv file, used below
 def read_write(result, writer):
@@ -45,16 +47,26 @@ def read_write(result, writer):
 
     return entries
 
-def get_instagram(hours=26):
+def get_instagram():
     '''
-        get_instagram(hours=26) gets instagram data from the last 26 hours
+        get_instagram gets instagram data from the last 26 hours
 
         can import get_instagram from other modules
 
     '''
-    start_time = time.time()
-    max_history = datetime.now() - timedelta(hours=hours) # how far back in time to collect data
 
+    # Determine most recent post timestamp
+    engine = sqlalchemy.create_engine('mysql://%(user)s:%(pass)s@%(host)s' % config.database) # connect to server
+    engine.execute('use %s' % config.database['name']) # select new db
+    sql_query = '''select max(date) from instagram'''
+
+    max_history = pd.read_sql_query(sql_query, engine).iloc[0,0]
+    max_history = max(max_history, datetime.now() - timedelta(weeks=2))
+    print 'Getting data back to ' +  max_history.isoformat()
+    # max_history = datetime.now() - timedelta(hours=hours) # how far back in time to collect data
+
+    # Start Instagram Collection
+    start_time = time.time()
     # query_url = 'https://api.instagram.com/v1/tags/streetart/media/recent?access_token=%s&max_tag_id=%s' % (config.instagram['access_token'], max_tag_id)
     query_url = 'https://api.instagram.com/v1/tags/streetart/media/recent?access_token=%s' % (config.instagram['access_token'])
 
@@ -64,7 +76,8 @@ def get_instagram(hours=26):
 
     fieldnames = sorted(['id', 'likes', 'text', 'created_time', 'image_url', 'lat', 'long', 'user_id', 'post_url'])
     timestamp = datetime.now().isoformat().replace(':', '_') # mac doesn't allow ':' in filenames
-    with open('data/instagram_data_%s.tsv' % timestamp, 'w') as output_file:
+    filename = 'data/instagram_data_%s.tsv' % timestamp
+    with open(filename, 'w') as output_file:
         writer = csv.DictWriter(output_file, fieldnames=fieldnames, delimiter='\t')
         writer.writeheader()
 
@@ -107,6 +120,8 @@ def get_instagram(hours=26):
             except Exception, e:
                 print 'caught error in body, continuing: %s' % e
                 traceback.print_exc()
+
+    return filename
 
 if __name__ == "__main__":
     get_instagram()
