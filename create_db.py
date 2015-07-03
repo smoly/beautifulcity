@@ -7,7 +7,7 @@ import pandas as pd
 import sqlalchemy
 
 engine = sqlalchemy.create_engine('mysql://root@localhost') # connect to server
-engine.execute('use tagus') # select new db
+engine.execute('use beautifulcity') # select new db
 
 # Define schema so as to not have pandas guess at types
 engine.execute('''
@@ -56,7 +56,7 @@ posts_all['date_day'] = posts_all['date'].apply(lambda x: str(x)[:10])
 # Put into table
 print 'data -> table'
 posts_all.to_sql('instagram', engine,
-                 schema='tagus',
+                 schema='beautifulcity',
                  if_exists='append',
                  chunksize=1000,
                  index=False)

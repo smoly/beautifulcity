@@ -1,45 +1,17 @@
-
 *.tsv
-
 *.csv
-
 *.pyc
 
-Untitled0.ipynb
-
-Untitled1.ipynb
-
-scratch.py
+map*
 
 config.py
 supervisord.log
 
-.idea/.name
-
-.idea/dbnavigator.xml
-
-.idea/dictionaries/Alexandra.xml
-
-.idea/encodings.xml
-
-.idea/modules.xml
-
-.idea/scopes/scope_settings.xml
-
-.idea/misc.xml
-
-.idea/vcs.xml
-
-.idea/graphiti.iml
-
-.idea/workspace.xml
+**/.idea/*
 
 app/templates/map.html
-
 app/templates/input.html
-
 app/templates/output.html
-
 app/templates/testmap.html
 
 test_db.py
@@ -52,10 +24,12 @@ optics-cellprofiler-erkan-yilmazs-optics-cellprofiler/cellprofiler/__init__.py
 
 optics-cellprofiler-erkan-yilmazs-optics-cellprofiler/cellprofiler/objects.py
 
-optics-cellprofiler-erkan-yilmazs-optics-cellprofiler/cellprofiler/profiler.py
+Insight-2015A.pem
 
-optics-cellprofiler-erkan-yilmazs-optics-cellprofiler/gui.py
-
+data
+notebooks
+Instagram Data Explorer.ipynb
+.ipynb_checkpoints/
 optics-cellprofiler-erkan-yilmazs-optics-cellprofiler/LICENSE
 
 
@@ -70,7 +44,5 @@ optics-cellprofiler-erkan-yilmazs-optics-cellprofiler/cellprofiler/parser.py
 optics-cellprofiler-erkan-yilmazs-optics-cellprofiler/README
 
 optics.py
-
-optics2.gz
-
-app/templates/map_HQn2v93hmStlolWeZHot.html
+test_db.py
+sql_scratch.sql
