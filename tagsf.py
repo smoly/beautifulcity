@@ -218,7 +218,7 @@ def make_word_cloud(text, save_path, background_color='black'):
     from wordcloud import WordCloud
     import os
 
-    def col_fun(a,b,c,d,random_state):
+    def col_fun(word, **kw):
         return '#333'
 
     if type(text) == str:
