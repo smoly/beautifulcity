@@ -12,6 +12,7 @@ Untitled1.ipynb
 scratch.py
 
 config.py
+supervisord.log
 
 .idea/.name
 
@@ -44,6 +45,8 @@ app/templates/testmap.html
 test_db.py
 
 app/templates/map.html
+app/static/data
+app/templates/map_*
 
 optics-cellprofiler-erkan-yilmazs-optics-cellprofiler/cellprofiler/__init__.py
 
@@ -54,6 +57,7 @@ optics-cellprofiler-erkan-yilmazs-optics-cellprofiler/cellprofiler/profiler.py
 optics-cellprofiler-erkan-yilmazs-optics-cellprofiler/gui.py
 
 optics-cellprofiler-erkan-yilmazs-optics-cellprofiler/LICENSE
+
 
 optics-cellprofiler-erkan-yilmazs-optics-cellprofiler/optics.py
 
