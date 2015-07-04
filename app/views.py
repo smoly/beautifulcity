@@ -50,7 +50,7 @@ def tag_home():
     engine.execute('use %s' % config.database['name']) # select new db
 
     recent_data = (datetime.now() - timedelta(weeks=2)).strftime("%Y-%m-%d")
-    sql_query = '''select date, lat, `long`, image_url, likes, text
+    sql_query = '''select date, lat, `long`, image_url, likes, text, post_url
                 from instagram
                 where `date` > '%s'
                 and lat between %s and %s

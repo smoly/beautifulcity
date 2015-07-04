@@ -91,7 +91,8 @@ def make_map(map_center, posts, cluster_labels, map_name='map'):
 
     # markers
     for ind, row in enumerate(posts.iterrows()):
-        img = '<a><img src='+row[1]['image_url']+' height="250px" width="250px"></a>'
+        img = '<a href="'+row[1]['post_url']+'"><img src='+row[1]['image_url']+' height="250px" width="250px"></a>'
+
         if cluster_labels[ind] == -1:
             map.circle_marker([row[1]['lat'], row[1]['long']],
                               radius=8,
