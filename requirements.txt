@@ -9,7 +9,8 @@
 
 # web stuff
 Flask==0.10.1
-folium==0.1.3 # failed
+#folium==0.1.3 # failed
+# install manually via pip install https://github.com/python-visualization/folium/archive/9219daa.zip --upgrade
 
 # APIs
 flickrapi==2.0 # failed
